@@ -856,7 +856,7 @@
     <!-- On-The-Go -->
     <string name="power_menu_onthego_title">Laufmodus</string>
     <string name="onthego_alpha_title">Laufmodus Alpha</string>
-    <string name="onthego_alpha_summary">Alpha value of the On-The-Go overlay.</string>
+    <string name="onthego_alpha_summary">Alpha Wert für den Laufmodus overlay.</string>
 
     <!-- Three-fingers-swipe to screenshot -->
     <string name="three_finger_gesture">Drei Finger Geste</string>
@@ -959,7 +959,7 @@
     <string name="doze_settings_title">Erweiterte Ambient Display Einstellungen</string>
     <string name="doze_timeout_title">Pulsieren der Benachrichtigungen auf Bildschirm</string>
     <string name="doze_timeout_summary">Zeit für das Pulsieren auf dem Display</string>
-    <string name="doze_trigger_pickup_title">Pick up gesture trigger</string>
+    <string name="doze_trigger_pickup_title">Aufheben trigger</string>
     <string name="doze_trigger_pickup_summary_on">Doze pulse will be triggered by pick up gesture sensor events</string>
     <string name="doze_trigger_pickup_summary_off">Pick up gesture sensor will not be utilized as a triggering mechanism</string>
     <string name="doze_trigger_sigmotion_title">Significant motion trigger</string>
@@ -1018,12 +1018,12 @@
     <string name="keyguard_torch_summary">Langes Drücken des Power-Buttons schaltet die Taschenlampe an.</string>
     
     <!-- Breathing Notifications -->
-    <string name="breathing_notifications_category">Atmende Benachrichtigungen</string>
-    <string name="breathing_notifications_title">Atmende Benachrichtigungen</string>
-    <string name="missed_call_breath_title">Atmende Benachrichtigungen für verpassten Anruf</string>
-    <string name="missed_call_breath_summary">Zeigt eine atmnde Benachrichtigung für verpasste Anrufe</string>
-    <string name="voicemail_breath_title">Atmende Benachrichtigungen für verpasste Voicemail</string>
-    <string name="voicemail_breath_summary">Zeigt eine atmnde Benachrichtigung für verpasste Voicemail</string>
+    <string name="breathing_notifications_category">Pulsierende Benachrichtigungen</string>
+    <string name="breathing_notifications_title">Pulsierende Benachrichtigungen</string>
+    <string name="missed_call_breath_title">Pulsierende Benachrichtigungen für verpassten Anruf</string>
+    <string name="missed_call_breath_summary">Zeigt eine pulsierende Benachrichtigung für verpasste Anrufe</string>
+    <string name="voicemail_breath_title">Pulsierende Benachrichtigungen für verpasste Voicemail</string>
+    <string name="voicemail_breath_summary">Zeigt eine pulsierende Benachrichtigung für verpasste Voicemail</string>
     
     <!-- Dashboard columns -->
     <string name="dashboard_columns_title">Instrumentenspalte</string>
