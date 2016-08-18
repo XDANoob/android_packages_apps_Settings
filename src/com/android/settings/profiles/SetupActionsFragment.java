@@ -16,16 +16,9 @@
 package com.android.settings.profiles;
 
 import android.app.Activity;
-import com.android.internal.logging.MetricsLogger;
-import cyanogenmod.profiles.AirplaneModeSettings;
 import android.app.AlertDialog;
-import cyanogenmod.profiles.BrightnessSettings;
-import cyanogenmod.profiles.ConnectionSettings;
 import android.app.Dialog;
 import android.app.NotificationGroup;
-import cyanogenmod.profiles.LockSettings;
-import cyanogenmod.profiles.RingModeSettings;
-import cyanogenmod.profiles.StreamSettings;
 import android.app.admin.DevicePolicyManager;
 import android.bluetooth.BluetoothAdapter;
 import android.content.ContentResolver;
@@ -43,6 +36,8 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.preference.SeekBarVolumizer;
 import android.provider.Settings;
+import android.telephony.SubscriptionInfo;
+import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.Editable;
 import android.text.TextUtils;
@@ -65,27 +60,35 @@ import android.widget.TextView;
 import cyanogenmod.app.Profile;
 import cyanogenmod.app.ProfileGroup;
 import cyanogenmod.app.ProfileManager;
+import cyanogenmod.profiles.AirplaneModeSettings;
+import cyanogenmod.profiles.BrightnessSettings;
+import cyanogenmod.profiles.ConnectionSettings;
+import cyanogenmod.profiles.LockSettings;
+import cyanogenmod.profiles.RingModeSettings;
+import cyanogenmod.profiles.StreamSettings;
 
 import com.android.settings.R;
-import com.android.settings.SettingsActivity;
 import com.android.settings.SubSettings;
 import com.android.settings.cyanogenmod.DeviceUtils;
 import com.android.settings.SettingsPreferenceFragment;
 import com.android.settings.profiles.actions.ItemListAdapter;
 import com.android.settings.profiles.actions.item.AirplaneModeItem;
-import com.android.settings.profiles.actions.item.BrightnessItem;
 import com.android.settings.profiles.actions.item.AppGroupItem;
+import com.android.settings.profiles.actions.item.BrightnessItem;
 import com.android.settings.profiles.actions.item.ConnectionOverrideItem;
 import com.android.settings.profiles.actions.item.DisabledItem;
 import com.android.settings.profiles.actions.item.DozeModeItem;
 import com.android.settings.profiles.actions.item.Header;
 import com.android.settings.profiles.actions.item.Item;
 import com.android.settings.profiles.actions.item.LockModeItem;
+import com.android.settings.profiles.actions.item.NotificationLightModeItem;
 import com.android.settings.profiles.actions.item.ProfileNameItem;
 import com.android.settings.profiles.actions.item.RingModeItem;
 import com.android.settings.profiles.actions.item.TriggerItem;
 import com.android.settings.profiles.actions.item.VolumeStreamItem;
 import com.android.settings.Utils;
+import com.android.settings.utils.TelephonyUtils;
+import org.cyanogenmod.internal.logging.CMMetricsLogger;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -98,13 +101,15 @@ import static cyanogenmod.profiles.ConnectionSettings.PROFILE_CONNECTION_NFC;
 import static cyanogenmod.profiles.ConnectionSettings.PROFILE_CONNECTION_SYNC;
 import static cyanogenmod.profiles.ConnectionSettings.PROFILE_CONNECTION_WIFI;
 import static cyanogenmod.profiles.ConnectionSettings.PROFILE_CONNECTION_WIFIAP;
-import static cyanogenmod.profiles.ConnectionSettings.PROFILE_CONNECTION_WIMAX;
 
 public class SetupActionsFragment extends SettingsPreferenceFragment
         implements AdapterView.OnItemClickListener {
 
     private static final int RINGTONE_REQUEST_CODE = 1000;
     private static final int NEW_TRIGGER_REQUEST_CODE = 1001;
+    private static final int SET_NETWORK_MODE_REQUEST_CODE = 1002;
+
+    public static final String EXTRA_NETWORK_MODE_PICKED = "network_mode_picker::chosen_value";
 
     private static final int MENU_REMOVE = Menu.FIRST;
     private static final int MENU_FILL_PROFILE = Menu.FIRST + 1;
@@ -122,6 +127,8 @@ public class SetupActionsFragment extends SettingsPreferenceFragment
     private static final String LAST_SELECTED_POSITION = "last_selected_position";
     private static final int DIALOG_REMOVE_PROFILE = 10;
 
+    private static final int DIALOG_NOTIFICATION_LIGHT_MODE = 11;
+
     private int mLastSelectedPosition = -1;
     private Item mSelectedItem;
 
@@ -132,18 +139,23 @@ public class SetupActionsFragment extends SettingsPreferenceFragment
 
     boolean mNewProfileMode;
 
-    private static final int[] LOCKMODE_MAPPING = new int[]{
+    private static final int[] LOCKMODE_MAPPING = new int[] {
             Profile.LockMode.DEFAULT, Profile.LockMode.INSECURE, Profile.LockMode.DISABLE
     };
-    private static final int[] EXPANDED_DESKTOP_MAPPING = new int[]{
+    private static final int[] EXPANDED_DESKTOP_MAPPING = new int[] {
             Profile.ExpandedDesktopMode.DEFAULT,
             Profile.ExpandedDesktopMode.ENABLE,
             Profile.ExpandedDesktopMode.DISABLE
     };
-    private static final int[] DOZE_MAPPING = new int[]{
+    private static final int[] DOZE_MAPPING = new int[] {
             Profile.DozeMode.DEFAULT,
             Profile.DozeMode.ENABLE,
             Profile.DozeMode.DISABLE
+    };
+    private static final int[] NOTIFICATION_LIGHT_MAPPING = new int[] {
+            Profile.NotificationLightMode.DEFAULT,
+            Profile.NotificationLightMode.ENABLE,
+            Profile.NotificationLightMode.DISABLE
     };
     private List<Item> mItems = new ArrayList<Item>();
 
@@ -204,7 +216,7 @@ public class SetupActionsFragment extends SettingsPreferenceFragment
         }
 
         // connection overrides
-        mItems.add(new Header(getString(R.string.profile_connectionoverrides_title)));
+        mItems.add(new Header(getString(R.string.wireless_networks_settings_title)));
         if (DeviceUtils.deviceSupportsBluetooth()) {
             mItems.add(new ConnectionOverrideItem(PROFILE_CONNECTION_BLUETOOTH,
                     mProfile.getSettingsForConnection(PROFILE_CONNECTION_BLUETOOTH)));
@@ -216,10 +228,17 @@ public class SetupActionsFragment extends SettingsPreferenceFragment
             mItems.add(generateConnectionOverrideItem(PROFILE_CONNECTION_MOBILEDATA));
             mItems.add(generateConnectionOverrideItem(PROFILE_CONNECTION_WIFIAP));
 
-            final TelephonyManager tm =
-                    (TelephonyManager) getActivity().getSystemService(Context.TELEPHONY_SERVICE);
-            if (tm.getPhoneType() == TelephonyManager.PHONE_TYPE_GSM) {
-                mItems.add(generateConnectionOverrideItem(PROFILE_CONNECTION_2G3G4G));
+            final List<SubscriptionInfo> subs = SubscriptionManager.from(getContext())
+                    .getActiveSubscriptionInfoList();
+            if (subs != null) {
+                for (SubscriptionInfo sub : subs) {
+                    mItems.add(generatePreferredNetworkOverrideItem(sub.getSubscriptionId()));
+                }
+            } else {
+                if (TelephonyManager.from(getContext()).getPhoneCount() == 1) {
+                    mItems.add(generatePreferredNetworkOverrideItem(
+                            SubscriptionManager.INVALID_SUBSCRIPTION_ID));
+                }
             }
         }
         //if (WimaxHelper.isWimaxSupported(getActivity())) {
@@ -242,7 +261,8 @@ public class SetupActionsFragment extends SettingsPreferenceFragment
         mItems.add(new AirplaneModeItem(mProfile.getAirplaneMode()));
         DevicePolicyManager dpm = (DevicePolicyManager) getSystemService(
                 Context.DEVICE_POLICY_SERVICE);
-        if (!dpm.requireSecureKeyguard()) {
+        if (!dpm.requireSecureKeyguard() && Settings.Secure.getInt(getActivity().getContentResolver(),
+                Settings.Secure.ENABLE_DEVICE_POLICY_OVERRIDE, 1) == 0) {
             mItems.add(new LockModeItem(mProfile));
         } else {
             mItems.add(new DisabledItem(R.string.profile_lockmode_title,
@@ -253,6 +273,11 @@ public class SetupActionsFragment extends SettingsPreferenceFragment
         final Activity activity = getActivity();
         if (Utils.isDozeAvailable(activity)) {
             mItems.add(new DozeModeItem(mProfile));
+        }
+
+        if (getResources().getBoolean(
+                com.android.internal.R.bool.config_intrusiveNotificationLed)) {
+            mItems.add(new NotificationLightModeItem(mProfile));
         }
 
         // app groups
@@ -280,11 +305,11 @@ public class SetupActionsFragment extends SettingsPreferenceFragment
                                 mProfile.getDefaultGroup().getUuid())));
             }
         }
-        if (groupsAdded > 0) {
-            // add dummy "add/remove app groups" entry
+        if (mProfileManager.getNotificationGroups().length > 0) {
+            // if there are notification groups available, allow them to be configured
             mItems.add(new AppGroupItem());
-        } else {
-            // remove the header since there are no options
+        } else if (groupsAdded == 0) {
+            // no notification groups available at all, nothing to add/remove
             mItems.remove(mItems.get(mItems.size() - 1));
         }
 
@@ -321,6 +346,16 @@ public class SetupActionsFragment extends SettingsPreferenceFragment
                 return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private ConnectionOverrideItem generatePreferredNetworkOverrideItem(int subId) {
+        ConnectionSettings settings = mProfile.getConnectionSettingWithSubId(subId);
+        if (settings == null) {
+            settings = new ConnectionSettings(ConnectionSettings.PROFILE_CONNECTION_2G3G4G);
+            settings.setSubId(subId);
+            mProfile.setConnectionSettings(settings);
+        }
+        return new ConnectionOverrideItem(settings.getConnectionId(), settings);
     }
 
     private ConnectionOverrideItem generateConnectionOverrideItem(int connectionId) {
@@ -521,16 +556,15 @@ public class SetupActionsFragment extends SettingsPreferenceFragment
             case DIALOG_DOZE_MODE:
                 return requestDozeModeDialog();
 
+            case DIALOG_NOTIFICATION_LIGHT_MODE:
+                return requestNotificationLightModeDialog();
+
             case DIALOG_RING_MODE:
                 return requestRingModeDialog(((RingModeItem) mSelectedItem).getSettings());
 
             case DIALOG_CONNECTION_OVERRIDE:
                 ConnectionOverrideItem connItem = (ConnectionOverrideItem) mSelectedItem;
-                if (connItem.getConnectionType() == ConnectionSettings.PROFILE_CONNECTION_2G3G4G) {
-                    return requestMobileConnectionOverrideDialog(connItem.getSettings());
-                } else {
-                    return requestConnectionOverrideDialog(connItem.getSettings());
-                }
+                return requestConnectionOverrideDialog(connItem.getSettings());
 
             case DIALOG_VOLUME_STREAM:
                 VolumeStreamItem volumeItem = (VolumeStreamItem) mSelectedItem;
@@ -640,6 +674,35 @@ public class SetupActionsFragment extends SettingsPreferenceFragment
         return builder.create();
     }
 
+    private AlertDialog requestNotificationLightModeDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+        final String[] notificationLightEntries =
+                getResources().getStringArray(R.array.profile_notification_light_entries);
+
+        int defaultIndex = 0; // no action
+        for (int i = 0; i < NOTIFICATION_LIGHT_MAPPING.length; i++) {
+            if (NOTIFICATION_LIGHT_MAPPING[i] == mProfile.getNotificationLightMode()) {
+                defaultIndex = i;
+                break;
+            }
+        }
+
+        builder.setTitle(R.string.notification_light_title);
+        builder.setSingleChoiceItems(notificationLightEntries, defaultIndex,
+                new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int item) {
+                        mProfile.setNotificationLightMode(NOTIFICATION_LIGHT_MAPPING[item]);
+                        updateProfile();
+                        mAdapter.notifyDataSetChanged();
+                        dialog.dismiss();
+                    }
+                });
+
+        builder.setNegativeButton(android.R.string.cancel, null);
+        return builder.create();
+    }
+
     private AlertDialog requestAirplaneModeDialog(final AirplaneModeSettings setting) {
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
         final String[] connectionNames =
@@ -698,6 +761,29 @@ public class SetupActionsFragment extends SettingsPreferenceFragment
         if (requestCode == NEW_TRIGGER_REQUEST_CODE) {
             mProfile = mProfileManager.getProfile(mProfile.getUuid());
             rebuildItemList();
+
+        } else if (requestCode == SET_NETWORK_MODE_REQUEST_CODE
+                && resultCode == Activity.RESULT_OK) {
+
+            int selectedMode = Integer.parseInt(data.getStringExtra(
+                    TelephonyUtils.EXTRA_NETWORK_PICKER_PICKED_VALUE));
+            int subId = data.getIntExtra(TelephonyUtils.EXTRA_SUBID,
+                    SubscriptionManager.getDefaultDataSubId());
+            ConnectionOverrideItem connItem = (ConnectionOverrideItem) mSelectedItem;
+            final ConnectionSettings setting = connItem.getSettings();
+//            final ConnectionSettings setting = mProfile.getConnectionSettingWithSubId(subId);
+
+            switch (selectedMode) {
+                case ConnectionOverrideItem.CM_MODE_SYSTEM_DEFAULT:
+                    setting.setOverride(false);
+                    break;
+                default:
+                    setting.setOverride(true);
+                    setting.setValue(selectedMode);
+            }
+            mProfile.setConnectionSettings(setting);
+            mAdapter.notifyDataSetChanged();
+            updateProfile();
         }
     }
 
@@ -756,6 +842,9 @@ public class SetupActionsFragment extends SettingsPreferenceFragment
         if (setting == null) {
             throw new UnsupportedOperationException("connection setting cannot be null");
         }
+        if (setting.getConnectionId() == PROFILE_CONNECTION_2G3G4G) {
+            throw new UnsupportedOperationException("dialog must be requested from Telephony");
+        }
         AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
         final String[] connectionNames =
                 getResources().getStringArray(R.array.profile_action_generic_connection_entries);
@@ -769,7 +858,7 @@ public class SetupActionsFragment extends SettingsPreferenceFragment
             }
         }
 
-        builder.setTitle(ConnectionOverrideItem.getConnectionTitle(setting.getConnectionId()));
+        builder.setTitle(ConnectionOverrideItem.getConnectionTitle(getContext(), setting));
         builder.setSingleChoiceItems(connectionNames, defaultIndex,
                 new DialogInterface.OnClickListener() {
                     @Override
@@ -786,43 +875,6 @@ public class SetupActionsFragment extends SettingsPreferenceFragment
                                 setting.setOverride(true);
                                 setting.setValue(1);
                                 break;
-                        }
-                        mProfile.setConnectionSettings(setting);
-                        mAdapter.notifyDataSetChanged();
-                        updateProfile();
-                        dialog.dismiss();
-                    }
-                });
-
-        builder.setNegativeButton(android.R.string.cancel, null);
-        return builder.create();
-    }
-
-    private AlertDialog requestMobileConnectionOverrideDialog(final ConnectionSettings setting) {
-        if (setting == null) {
-            throw new UnsupportedOperationException("connection setting cannot be null");
-        }
-        AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
-        final String[] connectionNames =
-                getResources().getStringArray(R.array.profile_networkmode_entries_4g);
-
-        int defaultIndex = ConnectionOverrideItem.CM_MODE_UNCHANGED; // no action
-        if (setting.isOverride()) {
-            defaultIndex = setting.getValue();
-        }
-
-        builder.setTitle(ConnectionOverrideItem.getConnectionTitle(setting.getConnectionId()));
-        builder.setSingleChoiceItems(connectionNames, defaultIndex,
-                new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int item) {
-                        switch (item) {
-                            case ConnectionOverrideItem.CM_MODE_UNCHANGED:
-                                setting.setOverride(false);
-                                break;
-                            default:
-                                setting.setOverride(true);
-                                setting.setValue(item);
                         }
                         mProfile.setConnectionSettings(setting);
                         mAdapter.notifyDataSetChanged();
@@ -1052,10 +1104,26 @@ public class SetupActionsFragment extends SettingsPreferenceFragment
             showDialog(DIALOG_LOCK_MODE);
         } else if (itemAtPosition instanceof DozeModeItem) {
             showDialog(DIALOG_DOZE_MODE);
+        } else if (itemAtPosition instanceof NotificationLightModeItem) {
+            showDialog(DIALOG_NOTIFICATION_LIGHT_MODE);
         } else if (itemAtPosition instanceof RingModeItem) {
             showDialog(DIALOG_RING_MODE);
         } else if (itemAtPosition instanceof ConnectionOverrideItem) {
-            showDialog(DIALOG_CONNECTION_OVERRIDE);
+
+            ConnectionOverrideItem connItem = (ConnectionOverrideItem) mSelectedItem;
+            if (connItem.getConnectionType() == ConnectionSettings.PROFILE_CONNECTION_2G3G4G) {
+                final Intent intent = new Intent(TelephonyUtils.ACTION_PICK_NETWORK_MODE);
+                intent.putExtra(TelephonyUtils.EXTRA_NONE_TEXT,
+                        getString(R.string.profile_action_none));
+                intent.putExtra(TelephonyUtils.EXTRA_SHOW_NONE, true);
+                intent.putExtra(TelephonyUtils.EXTRA_SUBID, connItem.getSettings().getSubId());
+                intent.putExtra(TelephonyUtils.EXTRA_INITIAL_NETWORK_VALUE,
+                        connItem.getSettings().isOverride()
+                                ? connItem.getSettings().getValue() : -1);
+                startActivityForResult(intent, SET_NETWORK_MODE_REQUEST_CODE);
+            } else {
+                showDialog(DIALOG_CONNECTION_OVERRIDE);
+            }
         } else if (itemAtPosition instanceof VolumeStreamItem) {
             showDialog(DIALOG_VOLUME_STREAM);
         } else if (itemAtPosition instanceof ProfileNameItem) {
@@ -1094,6 +1162,6 @@ public class SetupActionsFragment extends SettingsPreferenceFragment
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.DONT_TRACK_ME_BRO;
+        return CMMetricsLogger.SETUP_ACTIONS_FRAGMENT;
     }
 }

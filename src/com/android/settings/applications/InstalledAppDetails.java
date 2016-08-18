@@ -70,20 +70,20 @@ import com.android.internal.logging.MetricsLogger;
 import com.android.internal.os.BatterySipper;
 import com.android.internal.os.BatteryStatsHelper;
 import com.android.settings.DataUsageSummary;
-import com.android.settings.DataUsageSummary.AppItem;
 import com.android.settings.R;
 import com.android.settings.SettingsActivity;
 import com.android.settings.Utils;
 import com.android.settings.applications.PermissionsSummaryHelper.PermissionsResultCallback;
 import com.android.settings.fuelgauge.BatteryEntry;
 import com.android.settings.fuelgauge.PowerUsageDetail;
-import com.android.settings.net.ChartData;
-import com.android.settings.net.ChartDataLoader;
 import com.android.settings.notification.AppNotificationSettings;
 import com.android.settings.notification.NotificationBackend;
 import com.android.settings.notification.NotificationBackend.AppRow;
-import com.android.settingslib.applications.ApplicationsState;
+import com.android.settingslib.AppItem;
 import com.android.settingslib.applications.ApplicationsState.AppEntry;
+import com.android.settingslib.applications.ApplicationsState;
+import com.android.settingslib.net.ChartData;
+import com.android.settingslib.net.ChartDataLoader;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -413,8 +413,9 @@ public class InstalledAppDetails extends AppInfoBase
         mUpdatedSysApp = (mAppEntry.info.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0;
         menu.findItem(UNINSTALL_UPDATES).setVisible(mUpdatedSysApp && !mAppControlRestricted);
 
-        menu.findItem(OPEN_PROTECTED_APPS).setVisible(mPackageInfo.applicationInfo.protect);
-
+        if (mPackageInfo.applicationInfo != null) {
+            menu.findItem(OPEN_PROTECTED_APPS).setVisible(mPackageInfo.applicationInfo.protect);
+        }
     }
 
     @Override
@@ -709,6 +710,10 @@ public class InstalledAppDetails extends AppInfoBase
     }
 
     private void checkForceStop() {
+        if (getActivity() == null || getActivity().isFinishing()) {
+            return;
+        }
+
         if (mDpm.packageHasActiveAdmins(mPackageInfo.packageName)) {
             // User can't force stop device admin.
             updateForceStopButton(false);
@@ -755,6 +760,10 @@ public class InstalledAppDetails extends AppInfoBase
      * @see android.view.View.OnClickListener#onClick(android.view.View)
      */
     public void onClick(View v) {
+        if (mAppEntry == null) {
+            setIntentAndFinish(true, true);
+            return;
+        }
         String packageName = mAppEntry.info.packageName;
         if(v == mUninstallButton) {
             if ((mAppEntry.info.flags & ApplicationInfo.FLAG_SYSTEM) != 0) {
@@ -980,6 +989,13 @@ public class InstalledAppDetails extends AppInfoBase
             mPm.setApplicationEnabledSetting(mInfo.packageName, mState, 0);
             return null;
         }
+
+        @Override
+        protected void onPostExecute(Object o) {
+            if (mActivity.get() !=  null) {
+                mActivity.get().refreshUi();
+            }
+        }
     }
 
     private final LoaderCallbacks<ChartData> mDataCallbacks = new LoaderCallbacks<ChartData>() {
@@ -1004,7 +1020,9 @@ public class InstalledAppDetails extends AppInfoBase
     private final BroadcastReceiver mCheckKillProcessesReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            updateForceStopButton(getResultCode() != Activity.RESULT_CANCELED);
+            if (getActivity() != null && !getActivity().isDestroyed()) {
+                updateForceStopButton(getResultCode() != Activity.RESULT_CANCELED);
+            }
         }
     };
 
@@ -1018,7 +1036,6 @@ public class InstalledAppDetails extends AppInfoBase
             mPermissionReceiver = null;
             final Resources res = getResources();
             CharSequence summary = null;
-            boolean enabled = false;
             if (counts != null) {
                 int totalCount = counts[1];
                 int additionalCounts = counts[2];
@@ -1027,8 +1044,6 @@ public class InstalledAppDetails extends AppInfoBase
                     summary = res.getString(
                             R.string.runtime_permissions_summary_no_permissions_requested);
                 } else {
-                    enabled = true;
-
                     final ArrayList<CharSequence> list = new ArrayList(Arrays.asList(groupLabels));
                     if (additionalCounts > 0) {
                         // N additional permissions.
@@ -1045,7 +1060,6 @@ public class InstalledAppDetails extends AppInfoBase
                 }
             }
             mPermissionsPreference.setSummary(summary);
-            mPermissionsPreference.setEnabled(enabled);
         }
     };
 }

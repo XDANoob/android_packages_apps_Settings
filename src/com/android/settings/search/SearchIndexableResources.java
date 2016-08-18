@@ -42,8 +42,9 @@ import com.android.settings.inputmethod.InputMethodAndLanguageSettings;
 import com.android.settings.location.LocationSettings;
 import com.android.settings.location.ScanningSettings;
 import com.android.settings.net.DataUsageMeteredSettings;
-import com.android.settings.notification.NotificationSettings;
+import com.android.settings.notification.NotificationManagerSettings;
 import com.android.settings.notification.OtherSoundSettings;
+import com.android.settings.notification.SoundSettings;
 import com.android.settings.notification.ZenModePrioritySettings;
 import com.android.settings.notification.ZenModeSettings;
 import com.android.settings.print.PrintSettingsFragment;
@@ -52,6 +53,9 @@ import com.android.settings.users.UserSettings;
 import com.android.settings.wifi.AdvancedWifiSettings;
 import com.android.settings.wifi.SavedAccessPointsWifiSettings;
 import com.android.settings.wifi.WifiSettings;
+
+import com.android.settings.ButtonSettings;
+import com.android.settings.cyanogenmod.StatusBarSettings;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -81,7 +85,7 @@ public final class SearchIndexableResources {
         sResMap.put(SavedAccessPointsWifiSettings.class.getName(),
                 new SearchIndexableResource(
                         Ranking.getRankForClassName(SavedAccessPointsWifiSettings.class.getName()),
-                        R.xml.wifi_display_saved_access_points,
+                        NO_DATA_RES_ID,
                         SavedAccessPointsWifiSettings.class.getName(),
                         R.drawable.ic_settings_wireless));
 
@@ -97,7 +101,7 @@ public final class SearchIndexableResources {
                         Ranking.getRankForClassName(SimSettings.class.getName()),
                         NO_DATA_RES_ID,
                         SimSettings.class.getName(),
-                        R.drawable.ic_sim_sd));
+                        R.drawable.ic_settings_sim));
 
         sResMap.put(DataUsageSummary.class.getName(),
                 new SearchIndexableResource(
@@ -120,6 +124,13 @@ public final class SearchIndexableResources {
                         WirelessSettings.class.getName(),
                         R.drawable.ic_settings_more));
 
+        sResMap.put(SecuritySettings.class.getName(),
+                new SearchIndexableResource(
+                        Ranking.getRankForClassName(SecuritySettings.class.getName()),
+                        NO_DATA_RES_ID,
+                        SecuritySettings.class.getName(),
+                        R.drawable.ic_settings_security));
+
         sResMap.put(HomeSettings.class.getName(),
                 new SearchIndexableResource(
                         Ranking.getRankForClassName(HomeSettings.class.getName()),
@@ -141,11 +152,18 @@ public final class SearchIndexableResources {
                         WallpaperTypeSettings.class.getName(),
                         R.drawable.ic_settings_display));
 
-        sResMap.put(NotificationSettings.class.getName(),
+        sResMap.put(SoundSettings.class.getName(),
                 new SearchIndexableResource(
-                        Ranking.getRankForClassName(NotificationSettings.class.getName()),
+                        Ranking.getRankForClassName(SoundSettings.class.getName()),
                         NO_DATA_RES_ID,
-                        NotificationSettings.class.getName(),
+                        SoundSettings.class.getName(),
+                        R.drawable.ic_settings_notifications));
+
+        sResMap.put(NotificationManagerSettings.class.getName(),
+                new SearchIndexableResource(
+                        Ranking.getRankForClassName(NotificationManagerSettings.class.getName()),
+                        NO_DATA_RES_ID,
+                        NotificationManagerSettings.class.getName(),
                         R.drawable.ic_settings_notifications));
 
         sResMap.put(OtherSoundSettings.class.getName(),
@@ -294,6 +312,37 @@ public final class SearchIndexableResources {
                         R.xml.wifi_calling_settings,
                         WifiCallingSettings.class.getName(),
                         R.drawable.ic_settings_wireless));
+
+        // CyanogenMod Settings
+        sResMap.put(ButtonSettings.class.getName(),
+                new SearchIndexableResource(
+                        Ranking.getRankForClassName(ButtonSettings.class.getName()),
+                        R.xml.button_settings,
+                        ButtonSettings.class.getName(),
+                        R.drawable.ic_settings_buttons));
+
+        sResMap.put(StatusBarSettings.class.getName(),
+                new SearchIndexableResource(
+                        Ranking.getRankForClassName(StatusBarSettings.class.getName()),
+                        R.xml.status_bar_settings,
+                        StatusBarSettings.class.getName(),
+                        R.drawable.ic_settings_statusbar));
+
+        sResMap.put(com.android.settings.cyanogenmod.PrivacySettings.class.getName(),
+                new SearchIndexableResource(
+                        Ranking.getRankForClassName(
+                                com.android.settings.cyanogenmod.PrivacySettings.class.getName()),
+                        R.xml.privacy_settings_cyanogenmod,
+                        com.android.settings.cyanogenmod.PrivacySettings.class.getName(),
+                        R.drawable.ic_settings_privacy));
+
+        sResMap.put(com.android.settings.cyanogenmod.LockscreenSettingsAlias.class.getName(),
+                new SearchIndexableResource(
+                        Ranking.getRankForClassName(
+                                com.android.settings.cyanogenmod.LockscreenSettingsAlias.class.getName()),
+                        NO_DATA_RES_ID,
+                        com.android.settings.cyanogenmod.LockscreenSettingsAlias.class.getName(),
+                        R.drawable.ic_settings_lockscreen));
     }
 
     private SearchIndexableResources() {

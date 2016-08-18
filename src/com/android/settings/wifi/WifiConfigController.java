@@ -261,6 +261,7 @@ public class WifiConfigController implements TextWatcher,
                     ((CheckBox)mView.findViewById(R.id.wifi_advanced_togglebox)).setChecked(true);
                     mView.findViewById(R.id.wifi_advanced_fields).setVisibility(View.VISIBLE);
                 }
+                mConfigUi.setSubmitButton(res.getString(R.string.wifi_connect));
             }
 
             if (mModify) {
@@ -269,7 +270,7 @@ public class WifiConfigController implements TextWatcher,
                 final DetailedState state = mAccessPoint.getDetailedState();
                 final String signalLevel = getSignalString();
 
-                if (state == null && signalLevel != null) {
+                if ((state == null || state == DetailedState.DISCONNECTED) && signalLevel != null) {
                     mConfigUi.setSubmitButton(res.getString(R.string.wifi_connect));
                 } else {
                     if (state != null) {

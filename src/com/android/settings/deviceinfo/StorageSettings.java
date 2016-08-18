@@ -23,8 +23,8 @@ import android.app.Fragment;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.graphics.Color;
 import android.graphics.drawable.Drawable;
+import android.graphics.PorterDuff;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.storage.DiskInfo;
@@ -44,6 +44,7 @@ import android.widget.Toast;
 import com.android.internal.logging.MetricsLogger;
 import com.android.settings.R;
 import com.android.settings.SettingsPreferenceFragment;
+import com.android.settings.Utils;
 import com.android.settings.search.BaseSearchIndexProvider;
 import com.android.settings.search.Indexable;
 import com.android.settings.search.SearchIndexableRaw;
@@ -63,16 +64,10 @@ public class StorageSettings extends SettingsPreferenceFragment implements Index
     private static final String TAG_VOLUME_UNMOUNTED = "volume_unmounted";
     private static final String TAG_DISK_INIT = "disk_init";
 
-    static final int COLOR_PUBLIC = Color.parseColor("#ff9e9e9e");
-    static final int COLOR_WARNING = Color.parseColor("#fff4511e");
 
-    static final int[] COLOR_PRIVATE = new int[] {
-            Color.parseColor("#ff26a69a"),
-            Color.parseColor("#ffab47bc"),
-            Color.parseColor("#fff2a600"),
-            Color.parseColor("#ffec407a"),
-            Color.parseColor("#ffc0ca33"),
-    };
+    private int mPublicColor;
+
+    private int[] mPrivateColors;
 
     private StorageManager mStorageManager;
 
@@ -108,6 +103,14 @@ public class StorageSettings extends SettingsPreferenceFragment implements Index
         mInternalSummary = new StorageSummaryPreference(context);
 
         setHasOptionsMenu(true);
+        mPublicColor = context.getColor(R.color.storage_volume_color_public);
+        mPrivateColors = new int[] {
+                context.getColor(R.color.storage_volume_color_private1),
+                context.getColor(R.color.storage_volume_color_private2),
+                context.getColor(R.color.storage_volume_color_private3),
+                context.getColor(R.color.storage_volume_color_private4),
+                context.getColor(R.color.storage_volume_color_private5),
+        };
     }
 
     private final StorageEventListener mStorageListener = new StorageEventListener() {
@@ -147,17 +150,24 @@ public class StorageSettings extends SettingsPreferenceFragment implements Index
 
         for (VolumeInfo vol : volumes) {
             if (vol.getType() == VolumeInfo.TYPE_PRIVATE) {
-                final int color = COLOR_PRIVATE[privateCount++ % COLOR_PRIVATE.length];
+                final int color = mPrivateColors[privateCount++ % mPrivateColors.length];
                 mInternalCategory.addPreference(
                         new StorageVolumePreference(context, vol, color));
                 if (vol.isMountedReadable()) {
                     final File path = vol.getPath();
-                    privateUsedBytes += path.getTotalSpace() - path.getFreeSpace();
-                    privateTotalBytes += path.getTotalSpace();
+                    if (VolumeInfo.ID_PRIVATE_INTERNAL.equals(vol.getId())) {
+                        long totalSpace = Utils.estimateTotalSpace(context,
+                                path.getTotalSpace() + Utils.getSystemTotalSpace());
+                        privateUsedBytes += totalSpace - path.getFreeSpace();
+                        privateTotalBytes += totalSpace;
+                    } else {
+                        privateUsedBytes += path.getTotalSpace() - path.getFreeSpace();
+                        privateTotalBytes += path.getTotalSpace();
+                    }
                 }
             } else if (vol.getType() == VolumeInfo.TYPE_PUBLIC) {
                 mExternalCategory.addPreference(
-                        new StorageVolumePreference(context, vol, COLOR_PUBLIC));
+                        new StorageVolumePreference(context, vol, mPublicColor));
             }
         }
 
@@ -169,7 +179,8 @@ public class StorageSettings extends SettingsPreferenceFragment implements Index
                 // TODO: add actual storage type to record
                 final Drawable icon = context.getDrawable(R.drawable.ic_sim_sd);
                 icon.mutate();
-                icon.setTint(COLOR_PUBLIC);
+                icon.setTint(mPublicColor);
+                icon.setTintMode(PorterDuff.Mode.SRC_ATOP);
 
                 final Preference pref = new Preference(context);
                 pref.setKey(rec.getFsUuid());
@@ -466,6 +477,11 @@ public class StorageSettings extends SettingsPreferenceFragment implements Index
 
                 data = new SearchIndexableRaw(context);
                 data.title = context.getString(R.string.memory_available);
+                data.screenTitle = context.getString(R.string.storage_settings);
+                result.add(data);
+
+                data = new SearchIndexableRaw(context);
+                data.title = context.getString(R.string.memory_android_system_usage);
                 data.screenTitle = context.getString(R.string.storage_settings);
                 result.add(data);
 

@@ -60,6 +60,7 @@ import android.os.UserManager;
 import android.preference.ListPreference;
 import android.preference.Preference;
 import android.preference.Preference.OnPreferenceChangeListener;
+import android.preference.Preference.OnPreferenceClickListener;
 import android.preference.PreferenceGroup;
 import android.preference.PreferenceScreen;
 import android.preference.SwitchPreference;
@@ -75,16 +76,24 @@ import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityManager;
 import android.widget.Switch;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.android.internal.logging.MetricsLogger;
+import com.android.settings.Settings.AppOpsSummaryActivity;
 import com.android.settings.fuelgauge.InactiveApps;
 import com.android.settings.R;
 import com.android.settings.search.BaseSearchIndexProvider;
 import com.android.settings.search.Indexable;
+import com.android.settings.util.AbstractAsyncSuCMDProcessor;
+import com.android.settings.util.CMDProcessor;
+import com.android.settings.util.Helpers;
 import com.android.settings.widget.SwitchBar;
 import com.android.settings.util.Helpers;
 import cyanogenmod.providers.CMSettings;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.DataOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -95,7 +104,8 @@ import java.util.List;
  */
 public class DevelopmentSettings extends SettingsPreferenceFragment
         implements DialogInterface.OnClickListener, DialogInterface.OnDismissListener,
-                OnPreferenceChangeListener, SwitchBar.OnSwitchChangeListener, Indexable {
+                OnPreferenceChangeListener, SwitchBar.OnSwitchChangeListener, Indexable,
+                OnPreferenceClickListener {
     private static final String TAG = "DevelopmentSettings";
 
     /**
@@ -131,6 +141,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private static final String BUGREPORT_IN_POWER_KEY = "bugreport_in_power";
     private static final String OPENGL_TRACES_PROPERTY = "debug.egl.trace";
     private static final String TUNER_UI_KEY = "tuner_ui";
+    private static final String COLOR_TEMPERATURE_PROPERTY = "persist.sys.debug.color_temp";
 
     private static final String DEBUG_APP_KEY = "debug_app";
     private static final String WAIT_FOR_DEBUGGER_KEY = "wait_for_debugger";
@@ -145,6 +156,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private static final String SIMULATE_COLOR_SPACE = "simulate_color_space";
     private static final String USB_AUDIO_KEY = "usb_audio";
     private static final String SHOW_CPU_USAGE_KEY = "show_cpu_usage";
+    private static final String SHOW_CPU_INFO_KEY = "show_cpu_info";
     private static final String FORCE_HARDWARE_UI_KEY = "force_hw_ui";
     private static final String FORCE_MSAA_KEY = "force_msaa";
     private static final String TRACK_FRAME_TIME_KEY = "track_frame_time";
@@ -172,6 +184,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private static final String WIFI_LEGACY_DHCP_CLIENT_KEY = "legacy_dhcp_client";
     private static final String MOBILE_DATA_ALWAYS_ON = "mobile_data_always_on";
     private static final String KEY_COLOR_MODE = "color_mode";
+    private static final String COLOR_TEMPERATURE_KEY = "color_temperature";
 
     private static final String INACTIVE_APPS_KEY = "inactive_apps";
 
@@ -180,8 +193,11 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private static final String ROOT_ACCESS_KEY = "root_access";
     private static final String ROOT_ACCESS_PROPERTY = "persist.sys.root_access";
 
+    private static final String ROOT_APPOPS_KEY = "root_appops";
+
     private static final String IMMEDIATELY_DESTROY_ACTIVITIES_KEY
             = "immediately_destroy_activities";
+    private static final String ALLOW_SIGNATURE_FAKE_KEY = "allow_signature_fake";
     private static final String APP_PROCESS_LIMIT_KEY = "app_process_limit";
 
     private static final String SHOW_ALL_ANRS_KEY = "show_all_anrs";
@@ -202,6 +218,8 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
 
     private static final String MEDIA_SCANNER_ON_BOOT = "media_scanner_on_boot";
 
+    private static final String SELINUX = "selinux";
+
     private static final int RESULT_DEBUG_APP = 1000;
     private static final int RESULT_MOCK_LOCATION_APP = 1001;
 
@@ -214,6 +232,9 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private static final int[] MOCK_LOCATION_APP_OPS = new int[] {AppOpsManager.OP_MOCK_LOCATION};
 
     private static final String MULTI_WINDOW_SYSTEM_PROPERTY = "persist.sys.debug.multi_window";
+
+    private static final String SUPERUSER_BINARY_PATH = "/system/xbin/su";
+
     private IWindowManager mWindowManager;
     private IBackupManager mBackupManager;
     private DevicePolicyManager mDpm;
@@ -262,6 +283,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private SwitchPreference mDisableOverlays;
     private SwitchPreference mEnableMultiWindow;
     private SwitchPreference mShowCpuUsage;
+    private SwitchPreference mShowCpuInfo;
     private SwitchPreference mForceHardwareUi;
     private SwitchPreference mForceMsaa;
     private SwitchPreference mShowHwScreenUpdates;
@@ -273,9 +295,9 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private ListPreference mUsbConfiguration;
     private ListPreference mTrackFrameTime;
     private ListPreference mShowNonRectClip;
-    private ListPreference mWindowAnimationScale;
-    private ListPreference mTransitionAnimationScale;
-    private ListPreference mAnimatorDurationScale;
+    private AnimationScalePreference mWindowAnimationScale;
+    private AnimationScalePreference mTransitionAnimationScale;
+    private AnimationScalePreference mAnimatorDurationScale;
     private ListPreference mOverlayDisplayDevices;
     private ListPreference mOpenGLTraces;
 
@@ -283,6 +305,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
 
     private SwitchPreference mUSBAudio;
     private SwitchPreference mImmediatelyDestroyActivities;
+    private SwitchPreference mAllowSignatureFake;
 
     private ListPreference mAppProcessLimit;
 
@@ -295,11 +318,17 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private PreferenceScreen mDevelopmentTools;
     private ColorModePreference mColorModePreference;
 
+    private Preference mRootAppops;
+
     private SwitchPreference mAdvancedReboot;
 
     private SwitchPreference mDevelopmentShortcut;
 
     private ListPreference mMSOB;
+
+    private SwitchPreference mSelinux;
+
+    private SwitchPreference mColorTemperaturePreference;
 
     private final ArrayList<Preference> mAllPrefs = new ArrayList<Preference>();
 
@@ -313,6 +342,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private Dialog mAdbDialog;
     private Dialog mAdbTcpDialog;
     private Dialog mAdbKeysDialog;
+    private Dialog mAllowSignatureFakeDialog;
     private boolean mUnavailable;
     private Dialog mRootDialog;
 
@@ -334,7 +364,11 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         mWifiManager = (WifiManager) getSystemService(Context.WIFI_SERVICE);
 
         if (android.os.Process.myUserHandle().getIdentifier() != UserHandle.USER_OWNER
-                || mUm.hasUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES)) {
+                || mUm.hasUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES)
+                || Settings.Global.getInt(getActivity().getContentResolver(),
+                        Settings.Global.DEVICE_PROVISIONED, 0) == 0) {
+            // Block access to developer options if the user is not the owner, if user policy
+            // restricts it, or if the device has not been provisioned
             mUnavailable = true;
             setPreferenceScreen(new PreferenceScreen(getActivity(), null));
             return;
@@ -348,7 +382,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
                 findPreference(DEBUG_DEBUGGING_CATEGORY_KEY);
         mEnableAdb = findAndInitSwitchPref(ENABLE_ADB);
 
-        mAdbNotify = findAndInitSwitchPref(ADB_NOTIFY);
+        mAdbNotify = (SwitchPreference) findPreference(ADB_NOTIFY);
         mAllPrefs.add(mAdbNotify);
         mAdbOverNetwork = findAndInitSwitchPref(ADB_TCPIP);
 
@@ -404,7 +438,8 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         mMockLocationAppPref = findPreference(MOCK_LOCATION_APP_KEY);
         mAllPrefs.add(mMockLocationAppPref);
 
-        mVerifyAppsOverUsb = findAndInitSwitchPref(VERIFY_APPS_OVER_USB_KEY);
+        mVerifyAppsOverUsb = (SwitchPreference) findPreference(VERIFY_APPS_OVER_USB_KEY);
+        mAllPrefs.add(mVerifyAppsOverUsb);
         if (!showVerifierSetting()) {
             if (debugDebuggingCategory != null) {
                 debugDebuggingCategory.removePreference(mVerifyAppsOverUsb);
@@ -418,6 +453,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         mShowScreenUpdates = findAndInitSwitchPref(SHOW_SCREEN_UPDATES_KEY);
         mDisableOverlays = findAndInitSwitchPref(DISABLE_OVERLAYS_KEY);
         mShowCpuUsage = findAndInitSwitchPref(SHOW_CPU_USAGE_KEY);
+        mShowCpuInfo = findAndInitSwitchPref(SHOW_CPU_INFO_KEY);
         mForceHardwareUi = findAndInitSwitchPref(FORCE_HARDWARE_UI_KEY);
         mForceMsaa = findAndInitSwitchPref(FORCE_MSAA_KEY);
         mTrackFrameTime = addListPreference(TRACK_FRAME_TIME_KEY);
@@ -436,9 +472,9 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         mLogdSize = addListPreference(SELECT_LOGD_SIZE_KEY);
         mUsbConfiguration = addListPreference(USB_CONFIGURATION_KEY);
 
-        mWindowAnimationScale = addListPreference(WINDOW_ANIMATION_SCALE_KEY);
-        mTransitionAnimationScale = addListPreference(TRANSITION_ANIMATION_SCALE_KEY);
-        mAnimatorDurationScale = addListPreference(ANIMATOR_DURATION_SCALE_KEY);
+        mWindowAnimationScale = findAndInitAnimationScalePreference(WINDOW_ANIMATION_SCALE_KEY);
+        mTransitionAnimationScale = findAndInitAnimationScalePreference(TRANSITION_ANIMATION_SCALE_KEY);
+        mAnimatorDurationScale = findAndInitAnimationScalePreference(ANIMATOR_DURATION_SCALE_KEY);
         mOverlayDisplayDevices = addListPreference(OVERLAY_DISPLAY_DEVICES_KEY);
         mEnableMultiWindow = findAndInitSwitchPref(ENABLE_MULTI_WINDOW_KEY);
         if (!showEnableMultiWindowPreference()) {
@@ -461,6 +497,10 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         mAllPrefs.add(mImmediatelyDestroyActivities);
         mResetSwitchPrefs.add(mImmediatelyDestroyActivities);
 
+        mAllowSignatureFake = (SwitchPreference) findPreference(ALLOW_SIGNATURE_FAKE_KEY);
+        mAllPrefs.add(mAllowSignatureFake);
+        mResetSwitchPrefs.add(mAllowSignatureFake);
+
         mAppProcessLimit = addListPreference(APP_PROCESS_LIMIT_KEY);
 
         mShowAllANRs = (SwitchPreference) findPreference(
@@ -474,6 +514,18 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         mKillAppLongpressTimeout = addListPreference(KILL_APP_LONGPRESS_TIMEOUT);
         mKillAppLongpressTimeout.setOnPreferenceChangeListener(this);
 
+        //SELinux
+        mSelinux = (SwitchPreference) findPreference(SELINUX);
+        mSelinux.setOnPreferenceChangeListener(this);
+
+        if (CMDProcessor.runShellCommand("getenforce").getStdout().contains("Enforcing")) {
+            mSelinux.setChecked(true);
+            mSelinux.setSummary(R.string.selinux_enforcing_title);
+        } else {
+            mSelinux.setChecked(false);
+            mSelinux.setSummary(R.string.selinux_permissive_title);
+        }
+
         Preference hdcpChecking = findPreference(HDCP_CHECKING_KEY);
         if (hdcpChecking != null) {
             mAllPrefs.add(hdcpChecking);
@@ -482,8 +534,20 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
 
         mRootAccess = (ListPreference) findPreference(ROOT_ACCESS_KEY);
         mRootAccess.setOnPreferenceChangeListener(this);
+
+        mRootAppops = (Preference) findPreference(ROOT_APPOPS_KEY);
+        mRootAppops.setOnPreferenceClickListener(this);
+
         if (!removeRootOptionsIfRequired()) {
+            if (isRootForAppsAvailable()) {
+                mRootAccess.setEntries(R.array.root_access_entries);
+                mRootAccess.setEntryValues(R.array.root_access_values);
+            } else {
+                mRootAccess.setEntries(R.array.root_access_entries_adb);
+                mRootAccess.setEntryValues(R.array.root_access_values_adb);
+            }
             mAllPrefs.add(mRootAccess);
+            mAllPrefs.add(mRootAppops);
         }
 
         mDevelopmentTools = (PreferenceScreen) findPreference(DEVELOPMENT_TOOLS);
@@ -497,6 +561,15 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         if (mColorModePreference.getTransformsCount() < 2) {
             removePreference(KEY_COLOR_MODE);
             mColorModePreference = null;
+        }
+
+        mColorTemperaturePreference = (SwitchPreference) findPreference(COLOR_TEMPERATURE_KEY);
+        if (getResources().getBoolean(R.bool.config_enableColorTemperature)) {
+            mAllPrefs.add(mColorTemperaturePreference);
+            mResetSwitchPrefs.add(mColorTemperaturePreference);
+        } else {
+            removePreference(COLOR_TEMPERATURE_KEY);
+            mColorTemperaturePreference = null;
         }
     }
 
@@ -512,6 +585,14 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
             pref.setEnabled(false);
             mDisabledPrefs.add(pref);
         }
+    }
+
+    private AnimationScalePreference findAndInitAnimationScalePreference(String key) {
+        AnimationScalePreference pref = (AnimationScalePreference) findPreference(key);
+        pref.setOnPreferenceChangeListener(this);
+        pref.setOnPreferenceClickListener(this);
+        mAllPrefs.add(pref);
+        return pref;
     }
 
     private SwitchPreference findAndInitSwitchPref(String key) {
@@ -693,6 +774,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         updateShowTouchesOptions();
         updateFlingerOptions();
         updateCpuUsageOptions();
+        updateCpuInfoOptions();
         updateHardwareUiOptions();
         updateMsaaOptions();
         updateTrackFrameTimeOptions();
@@ -709,6 +791,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         }
         updateOpenGLTracesOptions();
         updateImmediatelyDestroyActivitiesOptions();
+        updateAllowSignatureFakeOption();
         updateAppProcessLimitOptions();
         updateShowAllANRsOptions();
         updateVerifyAppsOverUsbOptions();
@@ -727,6 +810,9 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         updateAdvancedRebootOptions();
         updateDevelopmentShortcutOptions();
         updateMSOBOptions();
+        if (mColorTemperaturePreference != null) {
+            updateColorTemperature();
+        }
     }
 
     private void resetMSOBOptions() {
@@ -816,6 +902,8 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         resetMSOBOptions();
         writeLogdSizeOption(null);
         resetRootAccessOptions();
+        resetAdbNotifyOptions();
+        resetVerifyAppsOverUsbOptions();
         resetDevelopmentShortcutOptions();
         writeAnimationScaleOption(0, mWindowAnimationScale, null);
         writeAnimationScaleOption(1, mTransitionAnimationScale, null);
@@ -838,6 +926,21 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         mRootAccess.setValue(value);
         mRootAccess.setSummary(getResources()
                 .getStringArray(R.array.root_access_entries)[Integer.valueOf(value)]);
+
+        if (mRootAppops != null) {
+            mRootAppops.setEnabled(isRootForAppsEnabled());
+        }
+    }
+
+    private boolean isRootForAppsAvailable() {
+        boolean exists = false;
+        try {
+            File f = new File(SUPERUSER_BINARY_PATH);
+            exists = f.exists();
+        } catch (SecurityException e) {
+            // Ignore
+        }
+        return exists;
     }
 
     public static boolean isRootForAppsEnabled() {
@@ -853,10 +956,10 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         if (Integer.valueOf(newValue.toString()) < 2 && !oldValue.equals(newValue)
                 && "1".equals(SystemProperties.get("service.adb.root", "0"))) {
             SystemProperties.set("service.adb.root", "0");
-            Settings.Secure.putInt(getActivity().getContentResolver(),
-                    Settings.Secure.ADB_ENABLED, 0);
-            Settings.Secure.putInt(getActivity().getContentResolver(),
-                    Settings.Secure.ADB_ENABLED, 1);
+            Settings.Global.putInt(getActivity().getContentResolver(),
+                    Settings.Global.ADB_ENABLED, 0);
+            Settings.Global.putInt(getActivity().getContentResolver(),
+                    Settings.Global.ADB_ENABLED, 1);
         }
         updateRootAccessOptions();
     }
@@ -866,12 +969,17 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         SystemProperties.set(ROOT_ACCESS_PROPERTY, "0");
         if (!oldValue.equals("0") && "1".equals(SystemProperties.get("service.adb.root", "0"))) {
             SystemProperties.set("service.adb.root", "0");
-            Settings.Secure.putInt(getActivity().getContentResolver(),
-                    Settings.Secure.ADB_ENABLED, 0);
-            Settings.Secure.putInt(getActivity().getContentResolver(),
-                    Settings.Secure.ADB_ENABLED, 1);
+            Settings.Global.putInt(getActivity().getContentResolver(),
+                    Settings.Global.ADB_ENABLED, 0);
+            Settings.Global.putInt(getActivity().getContentResolver(),
+                    Settings.Global.ADB_ENABLED, 1);
         }
         updateRootAccessOptions();
+    }
+
+    private void resetAdbNotifyOptions() {
+        CMSettings.Secure.putInt(getActivity().getContentResolver(),
+                CMSettings.Secure.ADB_NOTIFY, 1);
     }
 
     private void updateStayAwakeOptions() {
@@ -1087,6 +1195,11 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
               Settings.Global.PACKAGE_VERIFIER_INCLUDE_ADB, mVerifyAppsOverUsb.isChecked() ? 1 : 0);
     }
 
+    private void resetVerifyAppsOverUsbOptions() {
+        Settings.Global.putInt(getActivity().getContentResolver(),
+              Settings.Global.PACKAGE_VERIFIER_INCLUDE_ADB, 1);
+    }
+
     private boolean enableVerifierSetting() {
         final ContentResolver cr = getActivity().getContentResolver();
         if (Settings.Global.getInt(cr, Settings.Global.ADB_ENABLED, 0) == 0) {
@@ -1117,7 +1230,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     }
 
     private static boolean showEnableMultiWindowPreference() {
-        return !"user".equals(Build.TYPE);
+        return true;
     }
 
     private void setEnableMultiWindow(boolean value) {
@@ -1452,6 +1565,18 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         }
     }
 
+    private void updateColorTemperature() {
+        updateSwitchPreference(mColorTemperaturePreference,
+                SystemProperties.getBoolean(COLOR_TEMPERATURE_PROPERTY, false));
+    }
+
+    private void writeColorTemperature() {
+        SystemProperties.set(COLOR_TEMPERATURE_PROPERTY,
+                mColorTemperaturePreference.isChecked() ? "1" : "0");
+        pokeSystemProperties();
+        Toast.makeText(getActivity(), R.string.color_temperature_toast, Toast.LENGTH_LONG).show();
+    }
+
     private void updateUSBAudioOptions() {
         updateSwitchPreference(mUSBAudio, Settings.Secure.getInt(getContentResolver(),
                 Settings.Secure.USB_AUDIO_AUTOMATIC_ROUTING_DISABLED, 0) != 0);
@@ -1589,14 +1714,15 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         updateLogdSizeValues();
     }
 
-    private void updateUsbConfigurationValues() {
+    private void updateUsbConfigurationValues(boolean isUnlocked) {
         if (mUsbConfiguration != null) {
             UsbManager manager = (UsbManager) getSystemService(Context.USB_SERVICE);
 
             String[] values = getResources().getStringArray(R.array.usb_configuration_values);
             String[] titles = getResources().getStringArray(R.array.usb_configuration_titles);
             int index = 0;
-            for (int i = 0; i < titles.length; i++) {
+            // Assume if !isUnlocked -> charging, which should be at index 0
+            for (int i = 0; i < titles.length && isUnlocked; i++) {
                 if (manager.isFunctionEnabled(values[i])) {
                     index = i;
                     break;
@@ -1611,10 +1737,11 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private void writeUsbConfigurationOption(Object newValue) {
         UsbManager manager = (UsbManager)getActivity().getSystemService(Context.USB_SERVICE);
         String function = newValue.toString();
-        manager.setCurrentFunction(function);
         if (function.equals("none")) {
+            manager.setCurrentFunction(null);
             manager.setUsbDataUnlocked(false);
         } else {
+            manager.setCurrentFunction(function);
             manager.setUsbDataUnlocked(true);
         }
     }
@@ -1638,6 +1765,25 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         }
     }
 
+    private void updateCpuInfoOptions() {
+        updateSwitchPreference(mShowCpuInfo, Settings.Global.getInt(getActivity().getContentResolver(),
+                Settings.Global.SHOW_CPU, 0) != 0);
+    }
+
+    private void writeCpuInfoOptions() {
+        boolean value = mShowCpuInfo.isChecked();
+        Settings.Global.putInt(getActivity().getContentResolver(),
+                Settings.Global.SHOW_CPU, value ? 1 : 0);
+        Intent service = (new Intent())
+                .setClassName("com.android.systemui", "com.android.systemui.CPUInfoService");
+        if (value) {
+            getActivity().startService(service);
+        } else {
+            getActivity().stopService(service);
+        }
+    }
+
+
     private void writeImmediatelyDestroyActivitiesOptions() {
         try {
             ActivityManagerNative.getDefault().setAlwaysFinish(
@@ -1651,23 +1797,18 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
                 getActivity().getContentResolver(), Settings.Global.ALWAYS_FINISH_ACTIVITIES, 0) != 0);
     }
 
-    private void updateAnimationScaleValue(int which, ListPreference pref) {
+    private void updateAllowSignatureFakeOption() {
+        updateSwitchPreference(mAllowSignatureFake, Settings.Secure.getInt(
+                getActivity().getContentResolver(), Settings.Secure.ALLOW_SIGNATURE_FAKE, 0) != 0);
+    }
+
+    private void updateAnimationScaleValue(int which, AnimationScalePreference pref) {
         try {
             float scale = mWindowManager.getAnimationScale(which);
             if (scale != 1) {
                 mHaveDebugSettings = true;
             }
-            CharSequence[] values = pref.getEntryValues();
-            for (int i=0; i<values.length; i++) {
-                float val = Float.parseFloat(values[i].toString());
-                if (scale <= val) {
-                    pref.setValueIndex(i);
-                    pref.setSummary(pref.getEntries()[i]);
-                    return;
-                }
-            }
-            pref.setValueIndex(values.length-1);
-            pref.setSummary(pref.getEntries()[0]);
+            pref.setScale(scale);
         } catch (RemoteException e) {
         }
     }
@@ -1678,7 +1819,8 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         updateAnimationScaleValue(2, mAnimatorDurationScale);
     }
 
-    private void writeAnimationScaleOption(int which, ListPreference pref, Object newValue) {
+    private void writeAnimationScaleOption(int which, AnimationScalePreference pref,
+            Object newValue) {
         try {
             float scale = newValue != null ? Float.parseFloat(newValue.toString()) : 1;
             mWindowManager.setAnimationScale(which, scale);
@@ -1778,10 +1920,12 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     }
 
     private void confirmEnableOemUnlock() {
-        DialogInterface.OnClickListener onConfirmListener = new DialogInterface.OnClickListener() {
+        DialogInterface.OnClickListener onEnableOemListener = new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-                Utils.setOemUnlockEnabled(getActivity(), true);
+                if (which == DialogInterface.BUTTON_POSITIVE) {
+                    Utils.setOemUnlockEnabled(getActivity(), true);
+                }
                 updateAllOptions();
             }
         };
@@ -1789,8 +1933,9 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         new AlertDialog.Builder(getActivity())
                 .setTitle(R.string.confirm_enable_oem_unlock_title)
                 .setMessage(R.string.confirm_enable_oem_unlock_text)
-                .setPositiveButton(R.string.enable_text, onConfirmListener)
-                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(R.string.enable_text, onEnableOemListener)
+                .setNegativeButton(android.R.string.cancel, onEnableOemListener)
+                .setCancelable(false)
                 .create()
                 .show();
     }
@@ -1809,6 +1954,7 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
                 .setMessage(R.string.confirm_enable_multi_window_text)
                 .setPositiveButton(R.string.enable_text, onConfirmListener)
                 .setNegativeButton(android.R.string.cancel, onConfirmListener)
+                .setCancelable(false)
                 .create()
                 .show();
     }
@@ -1872,6 +2018,23 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         } else {
             super.onActivityResult(requestCode, resultCode, data);
         }
+    }
+
+    @Override
+    public boolean onPreferenceClick(Preference preference) {
+        if (preference == mWindowAnimationScale ||
+                preference == mTransitionAnimationScale ||
+                preference == mAnimatorDurationScale) {
+            ((AnimationScalePreference) preference).click();
+        } else if (preference == mRootAppops) {
+            Activity mActivity = getActivity();
+            Intent intent = new Intent(Intent.ACTION_MAIN);
+            intent.putExtra("appops_tab", getString(R.string.app_ops_categories_su));
+            intent.setClass(mActivity, AppOpsSummaryActivity.class);
+            mActivity.startActivity(intent);
+            return true;
+        }
+        return false;
     }
 
     @Override
@@ -1984,8 +2147,28 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
             }
         } else if (preference == mShowCpuUsage) {
             writeCpuUsageOptions();
+        } else if (preference == mShowCpuInfo) {
+            writeCpuInfoOptions();
         } else if (preference == mImmediatelyDestroyActivities) {
             writeImmediatelyDestroyActivitiesOptions();
+        } else if (preference == mAllowSignatureFake) {
+            if (mAllowSignatureFake.isChecked()) {
+                if (mAllowSignatureFakeDialog != null) {
+                    dismissDialogs();
+                }
+                mAllowSignatureFakeDialog = new AlertDialog.Builder(getActivity()).setMessage(
+                        getResources().getString(R.string.allow_signature_fake_warning))
+                        .setTitle(R.string.allow_signature_fake)
+                        .setIconAttribute(android.R.attr.alertDialogIcon)
+                        .setPositiveButton(android.R.string.yes, this)
+                        .setNegativeButton(android.R.string.no, this)
+                        .show();
+                mAllowSignatureFakeDialog.setOnDismissListener(this);
+            } else {
+                Settings.Secure.putInt(getActivity().getContentResolver(),
+                        Settings.Secure.ALLOW_SIGNATURE_FAKE, 0);
+                updateAllowSignatureFakeOption();
+            }
         } else if (preference == mShowAllANRs) {
             writeShowAllANRsOptions();
         } else if (preference == mForceHardwareUi) {
@@ -2012,6 +2195,8 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
             writeLegacyDhcpClientOptions();
         } else if (preference == mMobileDataAlwaysOn) {
             writeMobileDataAlwaysOnOptions();
+        } else if (preference == mColorTemperaturePreference) {
+            writeColorTemperature();
         } else if (preference == mUSBAudio) {
             writeUSBAudioOptions();
         } else if (preference == mAdvancedReboot) {
@@ -2110,11 +2295,24 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         } else if (preference == mMSOB) {
             writeMSOBOptions(newValue);
             return true;
+        } else if (preference == mSelinux) {
+            if (newValue.toString().equals("true")) {
+                CMDProcessor.runSuCommand("setenforce 1");
+                mSelinux.setSummary(R.string.selinux_enforcing_title);
+            } else if (newValue.toString().equals("false")) {
+                CMDProcessor.runSuCommand("setenforce 0");
+                mSelinux.setSummary(R.string.selinux_permissive_title);
+            }
+            return true;
         }
         return false;
     }
 
     private void dismissDialogs() {
+        if (mAllowSignatureFakeDialog != null) {
+            mAllowSignatureFakeDialog.dismiss();
+            mAllowSignatureFakeDialog = null;
+        }
         if (mAdbDialog != null) {
             mAdbDialog.dismiss();
             mAdbDialog = null;
@@ -2138,7 +2336,15 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     }
 
     public void onClick(DialogInterface dialog, int which) {
-        if (dialog == mAdbDialog) {
+        if (dialog == mAllowSignatureFakeDialog) {
+            if (which == DialogInterface.BUTTON_POSITIVE) {
+                Settings.Secure.putInt(getActivity().getContentResolver(),
+                        Settings.Secure.ALLOW_SIGNATURE_FAKE, 1);
+            } else {
+                // Reset the toggle
+                mAllowSignatureFake.setChecked(false);
+            }
+        } else if (dialog == mAdbDialog) {
             if (which == DialogInterface.BUTTON_POSITIVE) {
                 mDialogClicked = true;
                 Settings.Global.putInt(getActivity().getContentResolver(),
@@ -2205,6 +2411,9 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
         } else if (dialog == mRootDialog) {
             updateRootAccessOptions();
             mRootDialog = null;
+        } else if (dialog == mAllowSignatureFakeDialog) {
+            updateAllowSignatureFakeOption();
+            mAllowSignatureFakeDialog = null;
         }
     }
 
@@ -2224,19 +2433,15 @@ public class DevelopmentSettings extends SettingsPreferenceFragment
     private BroadcastReceiver mUsbReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            updateUsbConfigurationValues();
+            boolean isUnlocked = intent.getBooleanExtra(UsbManager.USB_DATA_UNLOCKED, false);
+            updateUsbConfigurationValues(isUnlocked);
         }
     };
 
     static class SystemPropPoker extends AsyncTask<Void, Void, Void> {
         @Override
         protected Void doInBackground(Void... params) {
-            String[] services;
-            try {
-                services = ServiceManager.listServices();
-            } catch (RemoteException e) {
-                return null;
-            }
+            String[] services = ServiceManager.listServices();
             for (String service : services) {
                 IBinder obj = ServiceManager.checkService(service);
                 if (obj != null) {

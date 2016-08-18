@@ -56,6 +56,7 @@ public class ProtectedAppsActivity extends Activity {
     private static final int REQ_RESET_PATTERN = 2;
 
     private static final String NEEDS_UNLOCK = "needs_unlock";
+    private static final String TARGET_INTENT = "target_intent";
 
     private ListView mListView;
 
@@ -70,12 +71,22 @@ public class ProtectedAppsActivity extends Activity {
 
     private boolean mWaitUserAuth = false;
     private boolean mUserIsAuth = false;
+    private Intent mTargetIntent;
+    private int mOrientation;
 
     private HashSet<ComponentName> mProtectedApps = new HashSet<ComponentName>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Handle incoming target activity
+        Intent incomingIntent = getIntent();
+        if (incomingIntent.hasExtra("com.android.settings.PROTECTED_APP_TARGET_INTENT")) {
+            mTargetIntent =
+                    incomingIntent.getParcelableExtra(
+                            "com.android.settings.PROTECTED_APP_TARGET_INTENT");
+        }
 
         setTitle(R.string.protected_apps);
         setContentView(R.layout.hidden_apps_list);
@@ -91,19 +102,28 @@ public class ProtectedAppsActivity extends Activity {
 
         if (savedInstanceState != null) {
             mUserIsAuth = savedInstanceState.getBoolean(NEEDS_UNLOCK);
+            mTargetIntent = savedInstanceState.getParcelable(TARGET_INTENT);
+        } else {
+            if (!mUserIsAuth) {
+                // Require unlock
+                mWaitUserAuth = true;
+                Intent lockPattern = new Intent(this, LockPatternActivity.class);
+                startActivityForResult(lockPattern, REQ_ENTER_PATTERN);
+            } else {
+                //LAUNCH
+                if (mTargetIntent != null) {
+                    launchTargetActivityInfoAndFinish();
+                }
+            }
         }
-
-        if (!mUserIsAuth) {
-            // Require unlock
-            Intent lockPattern = new Intent(this, LockPatternActivity.class);
-            startActivityForResult(lockPattern, REQ_ENTER_PATTERN);
-        }
+        mOrientation = getResources().getConfiguration().orientation;
     }
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         outState.putBoolean(NEEDS_UNLOCK, mUserIsAuth);
+        outState.putParcelable(TARGET_INTENT, mTargetIntent);
     }
 
     @Override
@@ -133,7 +153,7 @@ public class ProtectedAppsActivity extends Activity {
     }
 
     private void updateProtectedComponentsList() {
-        String protectedComponents = CMSettings.System.getString(getContentResolver(),
+        String protectedComponents = CMSettings.Secure.getString(getContentResolver(),
                 CMSettings.Secure.PROTECTED_COMPONENTS);
         protectedComponents = protectedComponents == null ? "" : protectedComponents;
         String [] flattened = protectedComponents.split("\\|");
@@ -150,8 +170,10 @@ public class ProtectedAppsActivity extends Activity {
     public void onPause() {
         super.onPause();
 
-        // Don't stick around
-        if (mWaitUserAuth && !mUserIsAuth) {
+        // Close this app to prevent unauthorized access when
+        // 1) not waiting for authorization and
+        // 2) there is no portrait/landscape mode switching
+        if (!mWaitUserAuth && (mOrientation == getResources().getConfiguration().orientation)) {
             finish();
         }
     }
@@ -164,11 +186,14 @@ public class ProtectedAppsActivity extends Activity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         switch (requestCode) {
             case REQ_ENTER_PATTERN:
-                mWaitUserAuth = true;
+                mWaitUserAuth = false;
                 switch (resultCode) {
                     case RESULT_OK:
                         //Nothing to do, proceed!
                         mUserIsAuth = true;
+                        if (mTargetIntent != null) {
+                            launchTargetActivityInfoAndFinish();
+                        }
                         break;
                     case RESULT_CANCELED:
                         // user failed to define a pattern, do not lock the folder
@@ -177,9 +202,15 @@ public class ProtectedAppsActivity extends Activity {
                 }
                 break;
             case REQ_RESET_PATTERN:
-                mWaitUserAuth = true;
+                mWaitUserAuth = false;
                 mUserIsAuth = false;
         }
+    }
+
+    private void launchTargetActivityInfoAndFinish() {
+        Intent launchIntent = mTargetIntent;
+        startActivity(launchIntent);
+        finish();
     }
 
     @Override
@@ -198,7 +229,7 @@ public class ProtectedAppsActivity extends Activity {
         // the ListView. This can happen if there are components which have been protected
         // but do not respond to the queryIntentActivities for Launcher Category
         ContentResolver resolver = getContentResolver();
-        String hiddenComponents = CMSettings.System.getString(resolver,
+        String hiddenComponents = CMSettings.Secure.getString(resolver,
                 CMSettings.Secure.PROTECTED_COMPONENTS);
 
         if (hiddenComponents != null && !hiddenComponents.equals("")) {
@@ -218,7 +249,7 @@ public class ProtectedAppsActivity extends Activity {
     }
 
     private void resetLock() {
-        mWaitUserAuth = false;
+        mWaitUserAuth = true;
         Intent lockPattern = new Intent(LockPatternActivity.RECREATE_PATTERN, null,
                 this, LockPatternActivity.class);
         startActivityForResult(lockPattern, REQ_RESET_PATTERN);

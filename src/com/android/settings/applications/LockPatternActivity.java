@@ -18,6 +18,7 @@ package com.android.settings.applications;
 
 import android.app.Activity;
 import android.content.SharedPreferences;
+import android.hardware.fingerprint.FingerprintManager;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.util.Base64;
@@ -25,6 +26,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import android.widget.Toast;
@@ -33,24 +35,37 @@ import com.android.internal.widget.LockPatternView;
 import com.android.settings.R;
 import com.android.settings.cyanogenmod.ProtectedAccountView;
 import com.android.settings.cyanogenmod.ProtectedAccountView.OnNotifyAccountReset;
+import com.android.settings.fingerprint.FingerprintUiHelper;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.List;
 
-public class LockPatternActivity extends Activity implements OnNotifyAccountReset {
+public class LockPatternActivity extends Activity implements OnNotifyAccountReset, FingerprintUiHelper.Callback {
     public static final String PATTERN_LOCK_PROTECTED_APPS = "pattern_lock_protected_apps";
     public static final String RECREATE_PATTERN = "recreate_pattern_lock";
+
+    private static final String STATE_IS_ACCOUNT_VIEW = "isAccountView";
+    private static final String STATE_CONTINUE_ENABLED = "continueEnabled";
+    private static final String STATE_CONFIRMING = "confirming";
+    private static final String STATE_RETRY_PATTERN = "retrypattern";
+    private static final String STATE_RETRY = "retry";
+    private static final String STATE_PATTERN_HASH = "pattern_hash";
+    private static final String STATE_CREATE = "create";
+
+    private static String TIMEOUT_PREF_KEY = "retry_timeout";
 
     private static final int MIN_PATTERN_SIZE = 4;
     private static final int MAX_PATTERN_RETRY = 5;
     private static final int PATTERN_CLEAR_TIMEOUT_MS = 2000;
+    private static final long FAILED_ATTEMPT_RETRY = 30;
 
     private static final int MENU_RESET = 0;
 
     LockPatternView mLockPatternView;
     ProtectedAccountView mAccountView;
+    ImageView mFingerprintIconView;
 
     TextView mPatternLockHeader;
     MenuItem mItem;
@@ -63,6 +78,11 @@ public class LockPatternActivity extends Activity implements OnNotifyAccountRese
     boolean mCreate;
     boolean mRetryPattern = true;
     boolean mConfirming = false;
+    boolean mFingerPrintSetUp = false;
+    boolean mRetryLocked = false;
+
+    private FingerprintManager mFingerprintManager;
+    private FingerprintUiHelper mFingerPrintUiHelper;
 
     Runnable mCancelPatternRunnable = new Runnable() {
         public void run() {
@@ -74,13 +94,14 @@ public class LockPatternActivity extends Activity implements OnNotifyAccountRese
                     mPatternLockHeader.setText(getResources()
                             .getString(R.string.lockpattern_need_to_confirm));
                 } else {
-                    mPatternLockHeader.setText(getResources()
-                            .getString(R.string.lockpattern_recording_intro_header));
+                    mPatternLockHeader.setText(getResources().getString(
+                            R.string.lockpattern_recording_intro_header));
                     mCancel.setText(getResources().getString(R.string.cancel));
                 }
             } else {
-                mPatternLockHeader.setText(getResources()
-                        .getString(R.string.lockpattern_settings_enable_summary));
+                mPatternLockHeader.setText(mFingerPrintSetUp ?
+                        getResources().getString(R.string.pa_pattern_or_fingerprint_header)
+                        : getResources().getString(R.string.lockpattern_settings_enable_summary));
             }
         }
     };
@@ -128,15 +149,46 @@ public class LockPatternActivity extends Activity implements OnNotifyAccountRese
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         menu.clear();
-        if (!mCreate) {
-            menu.add(0, MENU_RESET, 0, R.string.lockpattern_reset_button)
-                    .setIcon(R.drawable.ic_lockscreen_ime)
-                    .setAlphabeticShortcut('r')
-                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM |
-                            MenuItem.SHOW_AS_ACTION_WITH_TEXT);
-            mItem = menu.findItem(0);
+        menu.add(0, MENU_RESET, 0, R.string.lockpattern_reset_button)
+                .setIcon(R.drawable.ic_lockscreen_ime_white)
+                .setAlphabeticShortcut('r')
+                .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM |
+                        MenuItem.SHOW_AS_ACTION_WITH_TEXT);
+        mItem = menu.findItem(0);
+        if (mRetryLocked) {
+            mItem.setIcon(R.drawable.ic_settings_lockscreen_white);
         }
+
         return true;
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putBoolean(STATE_IS_ACCOUNT_VIEW, mAccountView.getVisibility() == View.VISIBLE);
+        outState.putBoolean(STATE_CONTINUE_ENABLED, mContinue.isEnabled());
+        outState.putBoolean(STATE_CONFIRMING, mConfirming);
+        outState.putBoolean(STATE_RETRY_PATTERN, mRetryPattern);
+        outState.putInt(STATE_RETRY, mRetry);
+        outState.putByteArray(STATE_PATTERN_HASH, mPatternHash);
+        outState.putBoolean(STATE_CREATE, mCreate);
+    }
+
+    @Override
+    protected void onRestoreInstanceState(Bundle savedInstanceState) {
+        super.onRestoreInstanceState(savedInstanceState);
+        if (savedInstanceState.getBoolean(STATE_IS_ACCOUNT_VIEW)) {
+            switchToAccount();
+        } else {
+            switchToPattern(false);
+            mPatternHash = savedInstanceState.getByteArray(STATE_PATTERN_HASH);
+            mConfirming = savedInstanceState.getBoolean(STATE_CONFIRMING);
+            mRetryPattern = savedInstanceState.getBoolean(STATE_RETRY_PATTERN);
+            mRetry = savedInstanceState.getInt(STATE_RETRY);
+            mCreate = savedInstanceState.getBoolean(STATE_CREATE);
+            mContinue.setEnabled(savedInstanceState.getBoolean(STATE_CONTINUE_ENABLED,
+                    mContinue.isEnabled()));
+        }
     }
 
     @Override
@@ -149,6 +201,10 @@ public class LockPatternActivity extends Activity implements OnNotifyAccountRese
                     switchToAccount();
                 }
                 return true;
+            case android.R.id.home:
+                setResult(RESULT_CANCELED);
+                finish();
+                return true;
             default:
                 return false;
         }
@@ -160,12 +216,16 @@ public class LockPatternActivity extends Activity implements OnNotifyAccountRese
     }
 
     private void switchToPattern(boolean reset) {
+        if (isRetryLocked()) {
+            return;
+        }
         if (reset) {
             resetPatternState(false);
         }
-        mPatternLockHeader.setText(getResources()
-                .getString(R.string.lockpattern_settings_enable_summary));
-        mItem.setIcon(R.drawable.ic_lockscreen_ime);
+        mPatternLockHeader.setText(mFingerPrintSetUp ?
+                getResources().getString(R.string.pa_pattern_or_fingerprint_header)
+                : getResources().getString(R.string.lockpattern_settings_enable_summary));
+        mItem.setIcon(R.drawable.ic_lockscreen_ime_white);
         mAccountView.clearFocusOnInput();
         mAccountView.setVisibility(View.GONE);
         mLockPatternView.setVisibility(View.VISIBLE);
@@ -174,7 +234,9 @@ public class LockPatternActivity extends Activity implements OnNotifyAccountRese
     private void switchToAccount() {
         mPatternLockHeader.setText(getResources()
                 .getString(R.string.lockpattern_settings_reset_summary));
-        mItem.setIcon(R.drawable.ic_settings_lockscreen);
+        if (mItem != null) {
+            mItem.setIcon(R.drawable.ic_settings_lockscreen_white);
+        }
         mAccountView.setVisibility(View.VISIBLE);
         mLockPatternView.setVisibility(View.GONE);
     }
@@ -182,6 +244,8 @@ public class LockPatternActivity extends Activity implements OnNotifyAccountRese
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.patternlock);
+
+        getActionBar().setDisplayHomeAsUpEnabled(true);
 
         mPatternLockHeader = (TextView) findViewById(R.id.pattern_lock_header);
         mCancel = (Button) findViewById(R.id.pattern_lock_btn_cancel);
@@ -192,14 +256,28 @@ public class LockPatternActivity extends Activity implements OnNotifyAccountRese
         mAccountView = (ProtectedAccountView) findViewById(R.id.lock_account_view);
         mAccountView.setOnNotifyAccountResetCb(this);
         mLockPatternView = (LockPatternView) findViewById(R.id.lock_pattern_view);
+        mFingerprintIconView = (ImageView) findViewById(R.id.protected_apps_fingerprint_icon);
 
         resetPatternState(false);
 
         //Setup Pattern Lock View
-        mLockPatternView.setSaveEnabled(false);
         mLockPatternView.setFocusable(false);
         mLockPatternView.setOnPatternListener(new UnlockPatternListener());
 
+        mFingerprintManager = (FingerprintManager) getSystemService(FingerprintManager.class);
+
+        if (mFingerprintManager.isHardwareDetected()) {
+            if (mFingerprintManager.hasEnrolledFingerprints() && !mCreate) {
+                mFingerPrintSetUp = true;
+                mFingerPrintUiHelper =
+                        new FingerprintUiHelper(mFingerprintIconView, mPatternLockHeader, this);
+                mFingerPrintUiHelper.setDarkIconography(true);
+                mFingerPrintUiHelper.setIdleText(getString(
+                        R.string.pa_pattern_or_fingerprint_header));
+            } else {
+                mFingerPrintSetUp = false;
+            }
+        }
     }
 
     private void resetPatternState(boolean clear) {
@@ -217,12 +295,25 @@ public class LockPatternActivity extends Activity implements OnNotifyAccountRese
         mCancel.setVisibility(mCreate ? View.VISIBLE : View.GONE);
         mCancel.setText(getResources().getString(R.string.cancel));
         mContinue.setVisibility(mCreate ? View.VISIBLE : View.GONE);
-        mPatternLockHeader.setText(mCreate
-                ? getResources().getString(R.string.lockpattern_recording_intro_header)
-                : getResources().getString(R.string.lockpattern_settings_enable_summary));
+        mPatternLockHeader.setText(mCreate ?
+                getResources().getString(R.string.lockpattern_recording_intro_header)
+                : (mFingerPrintSetUp ?
+                getResources().getString(R.string.pa_pattern_or_fingerprint_header)
+                : getResources().getString(R.string.lockpattern_settings_enable_summary)));
         mLockPatternView.clearPattern();
 
         invalidateOptionsMenu();
+    }
+
+    @Override
+    public void onAuthenticated() {
+        setResult(RESULT_OK);
+        finish();
+    }
+
+    @Override
+    public void onFingerprintIconVisibilityChanged(boolean visible) {
+
     }
 
     private class UnlockPatternListener implements LockPatternView.OnPatternListener {
@@ -296,10 +387,12 @@ public class LockPatternActivity extends Activity implements OnNotifyAccountRese
                     mLockPatternView.postDelayed(mCancelPatternRunnable, PATTERN_CLEAR_TIMEOUT_MS);
 
                     if (mRetry >= MAX_PATTERN_RETRY) {
+                        setPatternTimeout();
                         mLockPatternView.removeCallbacks(mCancelPatternRunnable);
                         Toast.makeText(getApplicationContext(),
                                 getResources().getString(
-                                        R.string.lockpattern_too_many_failed_confirmation_attempts),
+                                        R.string.lockpattern_too_many_failed_confirmation_attempts,
+                                        FAILED_ATTEMPT_RETRY),
                                 Toast.LENGTH_SHORT).show();
                         switchToAccount();
                     }
@@ -335,5 +428,39 @@ public class LockPatternActivity extends Activity implements OnNotifyAccountRese
         } catch (NoSuchAlgorithmException nsa) {
             return res;
         }
+    }
+
+    @Override
+    protected void onPause() {
+        if (mFingerPrintSetUp) {
+            mFingerPrintUiHelper.stopListening();
+        }
+        super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (mFingerPrintSetUp) {
+            mPatternLockHeader.setText(getString(R.string.pa_pattern_or_fingerprint_header));
+            mFingerPrintUiHelper.startListening();
+        }
+        if (isRetryLocked()) {
+            invalidateOptionsMenu();
+            switchToAccount();
+        }
+    }
+
+    private boolean isRetryLocked() {
+        long time = System.currentTimeMillis();
+        SharedPreferences prefs = getSharedPreferences(getPackageName(), MODE_PRIVATE);
+        long retryTime = prefs.getLong(TIMEOUT_PREF_KEY, 0);
+        mRetryLocked = (time - retryTime) < (FAILED_ATTEMPT_RETRY * 1000);
+        return mRetryLocked;
+    }
+
+    private void setPatternTimeout() {
+        SharedPreferences prefs = getSharedPreferences(getPackageName(), MODE_PRIVATE);
+        prefs.edit().putLong(TIMEOUT_PREF_KEY, System.currentTimeMillis()).apply();
     }
 }

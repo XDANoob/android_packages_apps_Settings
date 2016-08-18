@@ -105,6 +105,12 @@ public abstract class AppInfoBase extends SettingsPreferenceFragment
         super.onPause();
     }
 
+    @Override
+    public void onDestroy() {
+        mSession.release();
+        super.onDestroy();
+    }
+
     protected String retrieveAppEntry() {
         final Bundle args = getArguments();
         mPackageName = (args != null) ? args.getString(ARG_PACKAGE_NAME) : null;
@@ -156,7 +162,7 @@ public abstract class AppInfoBase extends SettingsPreferenceFragment
 
     @Override
     public void onRunningStateChanged(boolean running) {
-        // No op.
+        refreshUi();
     }
 
     @Override

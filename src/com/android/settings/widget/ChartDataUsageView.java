@@ -22,6 +22,7 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.net.NetworkPolicy;
 import android.net.NetworkStatsHistory;
+import android.net.TrafficStats;
 import android.os.Handler;
 import android.os.Message;
 import android.text.Spannable;
@@ -33,6 +34,7 @@ import android.text.format.Formatter.BytesResult;
 import android.text.format.Time;
 import android.util.AttributeSet;
 import android.util.Log;
+import android.util.MathUtils;
 import android.view.MotionEvent;
 import android.view.View;
 
@@ -165,27 +167,29 @@ public class ChartDataUsageView extends ChartView {
     }
 
     public void bindNetworkPolicy(NetworkPolicy policy) {
+        final long warningBytes, limitBytes;
+
         if (policy == null) {
-            mSweepLimit.setVisibility(View.INVISIBLE);
-            mSweepLimit.setValue(-1);
-            mSweepWarning.setVisibility(View.INVISIBLE);
-            mSweepWarning.setValue(-1);
-            return;
+            warningBytes = NetworkPolicy.LIMIT_DISABLED;
+            limitBytes = NetworkPolicy.LIMIT_DISABLED;
+        } else {
+            warningBytes = policy.warningBytes;
+            limitBytes = policy.limitBytes;
         }
 
-        if (policy.limitBytes != NetworkPolicy.LIMIT_DISABLED) {
+        if (limitBytes != NetworkPolicy.LIMIT_DISABLED) {
             mSweepLimit.setVisibility(View.VISIBLE);
             mSweepLimit.setEnabled(true);
-            mSweepLimit.setValue(policy.limitBytes);
+            mSweepLimit.setValue(limitBytes);
         } else {
             mSweepLimit.setVisibility(View.INVISIBLE);
             mSweepLimit.setEnabled(false);
             mSweepLimit.setValue(-1);
         }
 
-        if (policy.warningBytes != NetworkPolicy.WARNING_DISABLED) {
+        if (warningBytes != NetworkPolicy.WARNING_DISABLED) {
             mSweepWarning.setVisibility(View.VISIBLE);
-            mSweepWarning.setValue(policy.warningBytes);
+            mSweepWarning.setValue(warningBytes);
         } else {
             mSweepWarning.setVisibility(View.INVISIBLE);
             mSweepWarning.setValue(-1);
@@ -221,7 +225,7 @@ public class ChartDataUsageView extends ChartView {
         final long maxSweep = Math.max(mSweepWarning.getValue(), mSweepLimit.getValue());
         final long maxSeries = Math.max(mSeries.getMaxVisible(), mDetailSeries.getMaxVisible());
         final long maxVisible = Math.max(maxSeries, maxSweep) * 12 / 10;
-        final long maxDefault = Math.max(maxVisible, 50 * MB_IN_BYTES);
+        final long maxDefault = Math.max(maxVisible, 20 * MB_IN_BYTES);
         newMax = Math.max(maxDefault, newMax);
 
         // only invalidate when vertMax actually changed
@@ -535,6 +539,7 @@ public class ChartDataUsageView extends ChartView {
 
         @Override
         public long buildLabel(Resources res, SpannableStringBuilder builder, long value) {
+            value = MathUtils.constrain(value, 0, TrafficStats.TB_IN_BYTES);
             final BytesResult result = Formatter.formatBytes(res, value,
                     Formatter.FLAG_SHORTER | Formatter.FLAG_CALCULATE_ROUNDED);
             setText(builder, sSpanSize, result.value, "^1");

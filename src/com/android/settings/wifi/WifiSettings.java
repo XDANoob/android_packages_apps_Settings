@@ -52,7 +52,6 @@ import android.os.UserManager;
 import android.preference.Preference;
 import android.preference.PreferenceScreen;
 import android.provider.Settings;
-import android.text.Spannable;
 import android.text.style.TextAppearanceSpan;
 import android.util.Log;
 import android.view.ContextMenu;
@@ -485,11 +484,16 @@ public class WifiSettings extends RestrictedSettingsFragment
                 }
                 if (mSelectedAccessPoint.isSaved()) {
                     menu.add(Menu.NONE, MENU_ID_MODIFY, 0, R.string.wifi_menu_modify);
-                    NfcAdapter nfcAdapter = NfcAdapter.getDefaultAdapter(getActivity());
-                    if (nfcAdapter != null && nfcAdapter.isEnabled() &&
-                            mSelectedAccessPoint.getSecurity() != AccessPoint.SECURITY_NONE) {
-                        // Only allow writing of NFC tags for password-protected networks.
-                        menu.add(Menu.NONE, MENU_ID_WRITE_NFC, 0, R.string.wifi_menu_write_to_nfc);
+                    try {
+                        NfcAdapter nfcAdapter = NfcAdapter.getNfcAdapter(getActivity());
+                        if (nfcAdapter.isEnabled()
+                            && mSelectedAccessPoint.getSecurity() != AccessPoint.SECURITY_NONE) {
+                            // Only allow writing of NFC tags for password-protected networks.
+                            menu.add(Menu.NONE, MENU_ID_WRITE_NFC, 0,
+                                R.string.wifi_menu_write_to_nfc);
+                        }
+                    } catch (UnsupportedOperationException e) {
+                        Log.v(TAG, "this device does not have NFC support");
                     }
                 }
             }
@@ -667,6 +671,10 @@ public class WifiSettings extends RestrictedSettingsFragment
                 for (AccessPoint accessPoint : accessPoints) {
                     // Ignore access points that are out of range.
                     if (accessPoint.getLevel() != -1) {
+                        if (accessPoint.isSaved() && (!accessPoint.foundInScanResult)
+                               && (accessPoint.getDetailedState() == null)) {
+                            continue;
+                        }
                         hasAvailableAccessPoints = true;
                         if (accessPoint.getTag() != null) {
                             final Preference pref = (Preference) accessPoint.getTag();
@@ -675,7 +683,7 @@ public class WifiSettings extends RestrictedSettingsFragment
                             continue;
                         }
                         AccessPointPreference preference = new AccessPointPreference(accessPoint,
-                                getActivity(), mUserBadgeCache, false);
+                                getActivity(), mUserBadgeCache, false, false);
                         preference.setOrder(index++);
 
                         if (mOpenSsid != null && mOpenSsid.equals(accessPoint.getSsidStr())
@@ -720,7 +728,6 @@ public class WifiSettings extends RestrictedSettingsFragment
 
     protected TextView initEmptyView() {
         TextView emptyView = (TextView) getActivity().findViewById(android.R.id.empty);
-        emptyView.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
         getListView().setEmptyView(emptyView);
         return emptyView;
     }
@@ -759,11 +766,6 @@ public class WifiSettings extends RestrictedSettingsFragment
                 }
             });
         }
-        // Embolden and enlarge the brief description anyway.
-        Spannable boldSpan = (Spannable) mEmptyView.getText();
-        boldSpan.setSpan(
-                new TextAppearanceSpan(getActivity(), android.R.style.TextAppearance_Medium), 0,
-                briefText.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
         getPreferenceScreen().removeAll();
     }
 

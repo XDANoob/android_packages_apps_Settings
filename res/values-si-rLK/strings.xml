@@ -2514,6 +2514,7 @@
     <string name="keywords_default_apps" msgid="3581727483175522599">"යෙදුම් පෙරනිමි"</string>
     <string name="keywords_ignore_optimizations" msgid="946516741848647905">"ප්‍රශස්තකරණ මග හැරීම doze යෙදුම ස්ටෑන්ඩ්බයි"</string>
     <string name="keywords_color_mode" msgid="4670570451841540200">"දීප්තිමත් rgb srgb වර්ණ ස්වභාවික සම්මතය"</string>
+    <string name="keywords_color_temperature" msgid="2688947724153266364">"වර්ණ උෂ්ණත්වය D65 D73 සුදු කහ නිල් උණුසුම් සිසිල්"</string>
     <string name="keywords_lockscreen" msgid="4806191868723291541">"සර්පණය මුරපදය රටාව pin"</string>
     <string name="setup_wifi_nfc_tag" msgid="9028353016222911016">"Wi-Fi NFC ටැගයක් ස්ථාපනය කරන්න"</string>
     <string name="write_tag" msgid="8571858602896222537">"ලියනවා"</string>
@@ -2842,7 +2843,7 @@
     <string name="memory_performance" msgid="5661005192284103281">"කාර්යසාධනය"</string>
     <string name="total_memory" msgid="2017287600738630165">"මුළු මතකය"</string>
     <string name="average_used" msgid="5338339266517245782">"සාමාන්‍ය භාවිතය (%)"</string>
-    <string name="free_memory" msgid="4003936141603549746">"නිදහස්"</string>
+    <string name="free_memory" msgid="4003936141603549746">"භාවිතා නොකළ"</string>
     <string name="memory_usage_apps" msgid="5650192998273294098">"යෙදුම් මඟින් භාවිතා කළ මතකය"</string>
     <plurals name="memory_usage_apps_summary" formatted="false" msgid="6089210945574265774">
       <item quantity="one">අන්තිම <xliff:g id="DURATION_1">%2$s</xliff:g> තුළ මතකය යෙදුම් <xliff:g id="COUNT">%1$d</xliff:g> ක් භාවිතා කරන ලදි</item>
@@ -2902,4 +2903,7 @@
   </string-array>
     <string name="picture_color_mode" msgid="4560755008730283695">"පින්තූර වර්ණ ප්‍රකාරය"</string>
     <string name="picture_color_mode_desc" msgid="1141891467675548590">"sRGB භාවිතා කරන්න"</string>
+    <string name="color_temperature" msgid="2070126836910615605">"සිසිල් වර්ණ උෂ්ණත්වය"</string>
+    <string name="color_temperature_desc" msgid="4793729830226404052">"වඩා සිසිල් සංදර්ශක වර්ණ භාවිත කිරීම"</string>
+    <string name="color_temperature_toast" msgid="4974218172133854827">"වර්ණ වෙනස් කිරීම යෙදීමට තිරය ක්‍රියාවිරහිත කරන්න"</string>
 </resources>

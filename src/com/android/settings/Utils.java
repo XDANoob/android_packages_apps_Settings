@@ -57,6 +57,7 @@ import android.net.Uri;
 import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.IBinder;
 import android.os.INetworkManagementService;
 import android.os.RemoteException;
@@ -73,6 +74,7 @@ import android.provider.ContactsContract.Contacts;
 import android.provider.ContactsContract.Data;
 import android.provider.ContactsContract.Profile;
 import android.provider.ContactsContract.RawContacts;
+import android.provider.Settings;
 import android.service.persistentdata.PersistentDataBlockManager;
 import android.telephony.ServiceState;
 import android.telephony.TelephonyManager;
@@ -95,11 +97,12 @@ import android.widget.TabWidget;
 
 import com.android.internal.util.UserIcons;
 import com.android.settings.UserAdapter.UserDetails;
-import com.android.settings.dashboard.DashboardTile;
-import com.android.settings.drawable.CircleFramedDrawable;
-import com.android.settingslib.applications.ApplicationsState;
 import com.android.settings.bluetooth.BluetoothSettings;
+import com.android.settings.dashboard.DashboardTile;
+import com.android.settingslib.applications.ApplicationsState;
+import com.android.settingslib.drawable.CircleFramedDrawable;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
@@ -108,6 +111,8 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 import static android.content.Intent.EXTRA_USER;
 
@@ -158,6 +163,8 @@ public final class Utils {
     private static final int SECONDS_PER_DAY = 24 * 60 * 60;
 
     public static final String OS_PKG = "os";
+
+    private static final long GB_IN_BYTES = 1024 * 1024 * 1024;
 
     private static SparseArray<Bitmap> sDarkDefaultUserBitmapCache = new SparseArray<Bitmap>();
 
@@ -486,6 +493,20 @@ public final class Utils {
         return (level * 100) / scale;
     }
 
+    public static boolean isDockBatteryPresent(Intent batteryChangedIntent) {
+        return batteryChangedIntent.getBooleanExtra(BatteryManager.EXTRA_DOCK_PRESENT, true);
+    }
+
+    public static String getDockBatteryPercentage(Intent batteryChangedIntent) {
+        return formatPercentage(getDockBatteryLevel(batteryChangedIntent));
+    }
+
+    public static int getDockBatteryLevel(Intent batteryChangedIntent) {
+        int level = batteryChangedIntent.getIntExtra(BatteryManager.EXTRA_DOCK_LEVEL, 0);
+        int scale = batteryChangedIntent.getIntExtra(BatteryManager.EXTRA_DOCK_SCALE, 100);
+        return (level * 100) / scale;
+    }
+
     public static String getBatteryStatus(Resources res, Intent batteryChangedIntent) {
         final Intent intent = batteryChangedIntent;
 
@@ -501,6 +522,36 @@ public final class Utils {
                 resId = R.string.battery_info_status_charging_usb;
             } else if (plugType == BatteryManager.BATTERY_PLUGGED_WIRELESS) {
                 resId = R.string.battery_info_status_charging_wireless;
+            } else {
+                resId = R.string.battery_info_status_charging;
+            }
+            statusString = res.getString(resId);
+        } else if (status == BatteryManager.BATTERY_STATUS_DISCHARGING) {
+            statusString = res.getString(R.string.battery_info_status_discharging);
+        } else if (status == BatteryManager.BATTERY_STATUS_NOT_CHARGING) {
+            statusString = res.getString(R.string.battery_info_status_not_charging);
+        } else if (status == BatteryManager.BATTERY_STATUS_FULL) {
+            statusString = res.getString(R.string.battery_info_status_full);
+        } else {
+            statusString = res.getString(R.string.battery_info_status_unknown);
+        }
+
+        return statusString;
+    }
+
+    public static String getDockBatteryStatus(Resources res, Intent batteryChangedIntent) {
+        final Intent intent = batteryChangedIntent;
+
+        int plugType = intent.getIntExtra(BatteryManager.EXTRA_DOCK_PLUGGED, 0);
+        int status = intent.getIntExtra(BatteryManager.EXTRA_DOCK_STATUS,
+                BatteryManager.BATTERY_STATUS_UNKNOWN);
+        String statusString;
+        if (status == BatteryManager.BATTERY_STATUS_CHARGING) {
+            int resId;
+            if (plugType == BatteryManager.BATTERY_DOCK_PLUGGED_AC) {
+                resId = R.string.battery_info_status_charging_dock_ac;
+            } else if (plugType == BatteryManager.BATTERY_DOCK_PLUGGED_USB) {
+                resId = R.string.battery_info_status_charging_dock_usb;
             } else {
                 resId = R.string.battery_info_status_charging;
             }
@@ -560,36 +611,6 @@ public final class Utils {
                 com.android.internal.R.dimen.preference_fragment_padding_bottom);
 
         view.setPaddingRelative(paddingStart, 0, paddingEnd, paddingBottom);
-    }
-
-    /**
-     * Return string resource that best describes combination of tethering
-     * options available on this device.
-     */
-    public static int getTetheringLabel(ConnectivityManager cm) {
-        String[] usbRegexs = cm.getTetherableUsbRegexs();
-        String[] wifiRegexs = cm.getTetherableWifiRegexs();
-        String[] bluetoothRegexs = cm.getTetherableBluetoothRegexs();
-
-        boolean usbAvailable = usbRegexs.length != 0;
-        boolean wifiAvailable = wifiRegexs.length != 0;
-        boolean bluetoothAvailable = bluetoothRegexs.length != 0;
-
-        if (wifiAvailable && usbAvailable && bluetoothAvailable) {
-            return R.string.tether_settings_title_all;
-        } else if (wifiAvailable && usbAvailable) {
-            return R.string.tether_settings_title_all;
-        } else if (wifiAvailable && bluetoothAvailable) {
-            return R.string.tether_settings_title_all;
-        } else if (wifiAvailable) {
-            return R.string.tether_settings_title_wifi;
-        } else if (usbAvailable && bluetoothAvailable) {
-            return R.string.tether_settings_title_usb_bluetooth;
-        } else if (usbAvailable) {
-            return R.string.tether_settings_title_usb;
-        } else {
-            return R.string.tether_settings_title_bluetooth;
-        }
     }
 
     /* Used by UserSettings as well. Call this on a non-ui thread. */
@@ -852,6 +873,9 @@ public final class Utils {
         if (BluetoothSettings.class.getName().equals(fragmentName)) {
             intent.setClass(context, SubSettings.BluetoothSubSettings.class);
             intent.putExtra(SettingsActivity.EXTRA_SHOW_FRAGMENT_AS_SUBSETTING, true);
+         } else if (SecuritySettings.class.getName().equals(fragmentName)) {
+            intent.setClass(context, SubSettings.SecuritySubSettings.class);
+            intent.putExtra(SettingsActivity.EXTRA_SHOW_FRAGMENT_AS_SUBSETTING, true);
          } else {
              intent.setClass(context, SubSettings.class);
          }
@@ -1043,45 +1067,6 @@ public final class Utils {
     }
 
     /**
-     * Returns a circular icon for a user.
-     */
-    public static Drawable getUserIcon(Context context, UserManager um, UserInfo user) {
-        if (user.isManagedProfile()) {
-            // We use predefined values for managed profiles
-            Bitmap b = BitmapFactory.decodeResource(context.getResources(),
-                    com.android.internal.R.drawable.ic_corp_icon);
-            return CircleFramedDrawable.getInstance(context, b);
-        }
-        if (user.iconPath != null) {
-            Bitmap icon = um.getUserIcon(user.id);
-            if (icon != null) {
-                return CircleFramedDrawable.getInstance(context, icon);
-            }
-        }
-        return CircleFramedDrawable.getInstance(context, UserIcons.convertToBitmap(
-                UserIcons.getDefaultUserIcon(user.id, /* light= */ false)));
-    }
-
-    /**
-     * Returns a label for the user, in the form of "User: user name" or "Work profile".
-     */
-    public static String getUserLabel(Context context, UserInfo info) {
-        String name = info != null ? info.name : null;
-        if (info.isManagedProfile()) {
-            // We use predefined values for managed profiles
-            return context.getString(R.string.managed_user_title);
-        } else if (info.isGuest()) {
-            name = context.getString(R.string.user_guest);
-        }
-        if (name == null && info != null) {
-            name = Integer.toString(info.id);
-        } else if (info == null) {
-            name = context.getString(R.string.unknown);
-        }
-        return context.getResources().getString(R.string.running_process_item_user_label, name);
-    }
-
-    /**
      * Return whether or not the user should have a SIM Cards option in Settings.
      * TODO: Change back to returning true if count is greater than one after testing.
      * TODO: See bug 16533525.
@@ -1089,8 +1074,8 @@ public final class Utils {
     public static boolean showSimCardTile(Context context) {
         final TelephonyManager tm =
                 (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
-
-        return tm.getSimCount() > 1;
+        final boolean isPrimary = UserHandle.myUserId() == UserHandle.USER_OWNER;
+        return isPrimary && tm.getSimCount() > 1;
     }
 
     /**
@@ -1284,9 +1269,9 @@ public final class Utils {
         boolean hasPreferred = hasPreferredActivities(pm, packageName)
                 || hasUsbDefaults(usbManager, packageName);
         int status = pm.getIntentVerificationStatus(packageName, UserHandle.myUserId());
+        // consider a visible current link-handling state to be any explicitly designated behavior
         boolean hasDomainURLsPreference =
-                (status == PackageManager.INTENT_FILTER_DOMAIN_VERIFICATION_STATUS_ALWAYS) ||
-                (status == PackageManager.INTENT_FILTER_DOMAIN_VERIFICATION_STATUS_NEVER);
+                status != PackageManager.INTENT_FILTER_DOMAIN_VERIFICATION_STATUS_UNDEFINED;
         return context.getString(hasPreferred || hasDomainURLsPreference
                 ? R.string.launch_defaults_some
                 : R.string.launch_defaults_none);
@@ -1438,5 +1423,69 @@ public final class Utils {
                 break;
         }
         activity.setRequestedOrientation(frozenRotation);
+    }
+
+    public static boolean isUserOwner() {
+        return UserHandle.myUserId() == UserHandle.USER_OWNER;
+    }
+
+    public static boolean canUserMakeCallsSms(Context context) {
+        UserManager userManager = UserManager.get(context);
+        UserHandle userHandle = new UserHandle(UserHandle.myUserId());
+        boolean callSmsNotAllowed = userManager.hasUserRestriction(
+                userManager.DISALLOW_OUTGOING_CALLS, userHandle);
+        callSmsNotAllowed &= userManager.hasUserRestriction(
+                UserManager.DISALLOW_SMS, userHandle);
+        return !callSmsNotAllowed;
+    }
+
+    public static String join(Resources res, List<String> items) {
+        final int count = items.size();
+        if (items.isEmpty()) {
+            return null;
+        } else if (count == 1) {
+            return items.get(0);
+        } else if (count == 2) {
+            return res.getString(R.string.join_two_items, items.get(0), items.get(1));
+        } else {
+            String middle = items.get(count - 2);
+            for (int i = count - 3; i > 0; i--) {
+                middle = res.getString(R.string.join_many_items_middle,
+                        items.get(i), middle);
+            }
+            final String allButLast = res.getString(R.string.join_many_items_first,
+                    items.get(0), middle);
+            return res.getString(R.string.join_many_items_last, allButLast,
+                    items.get(count - 1));
+        }
+    }
+
+    public static boolean isAirplaneModeEnabled(Context context) {
+        return Settings.Global.getInt(context.getContentResolver(),
+                Settings.Global.AIRPLANE_MODE_ON, 0) != 0;
+    }
+
+    public static long getSystemTotalSpace() {
+        File system = Environment.getRootDirectory();
+        return system.getTotalSpace();
+    }
+
+    public static long estimateTotalSpace(Context context, long approximateTotalSpace) {
+        int[] possibleSizeBases = context.getResources()
+                .getIntArray(R.array.config_storageSizes);
+
+        SortedSet<Long> possibleSizes = new TreeSet<Long>();
+        for (int possibleSizeBase : possibleSizeBases) {
+            possibleSizes.add(possibleSizeBase * GB_IN_BYTES);
+        }
+
+        long estimatedTotal = approximateTotalSpace;
+        for (long possibleSize : possibleSizes) {
+            if (possibleSize > approximateTotalSpace) {
+                estimatedTotal = possibleSize;
+                break;
+            }
+        }
+        return estimatedTotal;
     }
 }

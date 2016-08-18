@@ -76,6 +76,7 @@ public class DeviceInfoSettings extends SettingsPreferenceFragment implements In
     private static final String KEY_KERNEL_VERSION = "kernel_version";
     private static final String KEY_BUILD_NUMBER = "build_number";
     private static final String KEY_DEVICE_MODEL = "device_model";
+    private static final String KEY_DEVICE_NAME = "device_name";
     private static final String KEY_SELINUX_STATUS = "selinux_status";
     private static final String KEY_BASEBAND_VERSION = "baseband_version";
     private static final String KEY_FIRMWARE_VERSION = "firmware_version";
@@ -90,6 +91,7 @@ public class DeviceInfoSettings extends SettingsPreferenceFragment implements In
     private static final String KEY_MOD_API_LEVEL = "mod_api_level";
     private static final String KEY_DEVICE_CPU = "device_cpu";
     private static final String KEY_DEVICE_MEMORY = "device_memory";
+    private static final String KEY_VENDOR_VERSION = "vendor_version";
 
     static final int TAPS_TO_BE_A_DEVELOPER = 7;
 
@@ -130,14 +132,22 @@ public class DeviceInfoSettings extends SettingsPreferenceFragment implements In
             getPreferenceScreen().removePreference(findPreference(KEY_SECURITY_PATCH));
 
         }
+        String vendorfingerprint = SystemProperties.get("ro.vendor.build.fingerprint");
+        if (vendorfingerprint != null && !TextUtils.isEmpty(vendorfingerprint)) {
+            String[] splitfingerprint = vendorfingerprint.split("/");
+            String vendorid = splitfingerprint[3];
+            setStringSummary(KEY_VENDOR_VERSION, vendorid);
+        } else {
+            getPreferenceScreen().removePreference(findPreference(KEY_VENDOR_VERSION));
+        }
         setValueSummary(KEY_BASEBAND_VERSION, "gsm.version.baseband");
-        setStringSummary(KEY_DEVICE_MODEL, Build.MODEL + getMsvSuffix());
         setValueSummary(KEY_EQUIPMENT_ID, PROPERTY_EQUIPMENT_ID);
         setStringSummary(KEY_DEVICE_MODEL, Build.MODEL);
         setStringSummary(KEY_BUILD_NUMBER, Build.DISPLAY);
         findPreference(KEY_BUILD_NUMBER).setEnabled(true);
         findPreference(KEY_KERNEL_VERSION).setSummary(getFormattedKernelVersion());
-        setValueSummary(KEY_MOD_VERSION, cyanogenmod.os.Build.CYANOGENMOD_DISPLAY_VERSION);
+        findPreference(KEY_MOD_VERSION).setSummary(
+                cyanogenmod.os.Build.CYANOGENMOD_DISPLAY_VERSION);
         findPreference(KEY_MOD_VERSION).setEnabled(true);
         setValueSummary(KEY_MOD_BUILD_DATE, "ro.build.date");
         setExplicitValueSummary(KEY_MOD_API_LEVEL, constructApiLevelString());
@@ -150,6 +160,9 @@ public class DeviceInfoSettings extends SettingsPreferenceFragment implements In
             String status = getResources().getString(R.string.selinux_status_permissive);
             setStringSummary(KEY_SELINUX_STATUS, status);
         }
+
+        setStringSummary(KEY_DEVICE_NAME, Build.PRODUCT);
+        removePreferenceIfBoolFalse(KEY_DEVICE_NAME, R.bool.config_displayDeviceName);
 
         // Remove selinux information if property is not present
         removePreferenceIfPropertyMissing(getPreferenceScreen(), KEY_SELINUX_STATUS,
@@ -212,10 +225,9 @@ public class DeviceInfoSettings extends SettingsPreferenceFragment implements In
         // Remove manual entry if none present.
         removePreferenceIfBoolFalse(KEY_MANUAL, R.bool.config_show_manual);
 
-        // Remove regulatory information if none present or config_show_regulatory_info is disabled
+        // Remove regulatory information if none present
         final Intent intent = new Intent(Settings.ACTION_SHOW_REGULATORY_INFO);
-        if (getPackageManager().queryIntentActivities(intent, 0).isEmpty()
-                || !getResources().getBoolean(R.bool.config_show_regulatory_info)) {
+        if (getPackageManager().queryIntentActivities(intent, 0).isEmpty()) {
             Preference pref = findPreference(KEY_REGULATORY_INFO);
             if (pref != null) {
                 getPreferenceScreen().removePreference(pref);
@@ -257,6 +269,12 @@ public class DeviceInfoSettings extends SettingsPreferenceFragment implements In
             // Don't enable developer options for secondary users.
             if (UserHandle.myUserId() != UserHandle.USER_OWNER) return true;
 
+            // Don't enable developer options until device has been provisioned
+            if (Settings.Global.getInt(getActivity().getContentResolver(),
+                    Settings.Global.DEVICE_PROVISIONED, 0) == 0) {
+                return true;
+            }
+
             final UserManager um = (UserManager) getSystemService(Context.USER_SERVICE);
             if (um.hasUserRestriction(UserManager.DISALLOW_DEBUGGING_FEATURES)) return true;
 
@@ -287,13 +305,6 @@ public class DeviceInfoSettings extends SettingsPreferenceFragment implements In
                             Toast.LENGTH_SHORT);
                     mDevHitToast.show();
                 }
-            } else if (mDevHitCountdown < 0) {
-                if (mDevHitToast != null) {
-                    mDevHitToast.cancel();
-                }
-                mDevHitToast = Toast.makeText(getActivity(), R.string.show_dev_already_cm,
-                        Toast.LENGTH_LONG);
-                mDevHitToast.show();
             }
         } else if (preference.getKey().equals(KEY_DEVICE_FEEDBACK)) {
             sendFeedback();

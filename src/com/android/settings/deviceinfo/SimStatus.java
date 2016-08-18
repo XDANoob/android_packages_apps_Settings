@@ -16,6 +16,7 @@
 
 package com.android.settings.deviceinfo;
 
+import android.app.ActionBar;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -36,22 +37,18 @@ import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.ListView;
 
 import com.android.internal.logging.MetricsLogger;
 import com.android.internal.telephony.DefaultPhoneNotifier;
 import com.android.internal.telephony.Phone;
+import com.android.internal.telephony.PhoneConstants;
 import com.android.internal.telephony.PhoneFactory;
 import com.android.settings.InstrumentedPreferenceActivity;
 import com.android.settings.R;
 import com.android.settings.Utils;
-
-import android.view.View;
-import android.widget.ListView;
-import android.widget.TabHost;
-import android.widget.TabHost.OnTabChangeListener;
-import android.widget.TabHost.TabContentFactory;
-import android.widget.TabHost.TabSpec;
-import android.widget.TabWidget;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -62,7 +59,6 @@ import java.util.List;
  * # Phone Number
  * # Network
  * # Roaming
- * # Device Id (IMEI in GSM and MEID in CDMA)
  * # Network type
  * # Operator info (area info cell broadcast for Brazil)
  * # Signal Strength
@@ -79,8 +75,6 @@ public class SimStatus extends InstrumentedPreferenceActivity {
     private static final String KEY_LATEST_AREA_INFO = "latest_area_info";
     private static final String KEY_PHONE_NUMBER = "number";
     private static final String KEY_SIGNAL_STRENGTH = "signal_strength";
-    private static final String KEY_IMEI = "imei";
-    private static final String KEY_IMEI_SV = "imei_sv";
     private static final String COUNTRY_ABBREVIATION_BRAZIL = "br";
 
     static final String CB_AREA_INFO_RECEIVED_ACTION =
@@ -93,6 +87,7 @@ public class SimStatus extends InstrumentedPreferenceActivity {
     static final String CB_AREA_INFO_SENDER_PERMISSION =
             "android.permission.RECEIVE_EMERGENCY_BROADCAST";
 
+    static final String EXTRA_SLOT_ID = "slot_id";
 
     private TelephonyManager mTelephonyManager;
     private Phone mPhone = null;
@@ -103,11 +98,6 @@ public class SimStatus extends InstrumentedPreferenceActivity {
 
     // Default summary for items
     private String mDefaultText;
-
-    private TabHost mTabHost;
-    private TabWidget mTabWidget;
-    private ListView mListView;
-    private List<SubscriptionInfo> mSelectableSubInfos;
 
     private PhoneStateListener mPhoneStateListener;
     private BroadcastReceiver mAreaInfoReceiver = new BroadcastReceiver() {
@@ -135,8 +125,6 @@ public class SimStatus extends InstrumentedPreferenceActivity {
         super.onCreate(icicle);
         mTelephonyManager = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
 
-        mSelectableSubInfos = SubscriptionManager.from(this).getActiveSubscriptionInfoList();
-
         addPreferencesFromResource(R.xml.device_info_sim_status);
 
         mRes = getResources();
@@ -144,29 +132,20 @@ public class SimStatus extends InstrumentedPreferenceActivity {
         // Note - missing in zaku build, be careful later...
         mSignalStrength = findPreference(KEY_SIGNAL_STRENGTH);
 
-        if (mSelectableSubInfos == null) {
-            mSir = null;
-        } else {
-            mSir = mSelectableSubInfos.size() > 0 ? mSelectableSubInfos.get(0) : null;
+        SubscriptionManager subscriptionManager = SubscriptionManager.from(this);
+        int slotId = getIntent().getIntExtra(EXTRA_SLOT_ID, 0);
+        mSir = subscriptionManager.getActiveSubscriptionInfoForSimSlotIndex(slotId);
 
-            if (mSelectableSubInfos.size() > 1) {
-                setContentView(com.android.internal.R.layout.common_tab_settings);
-
-                mTabHost = (TabHost) findViewById(android.R.id.tabhost);
-                mTabWidget = (TabWidget) findViewById(android.R.id.tabs);
-                mListView = (ListView) findViewById(android.R.id.list);
-
-                mTabHost.setup();
-                mTabHost.setOnTabChangedListener(mTabListener);
-                mTabHost.clearAllTabs();
-
-                for (int i = 0; i < mSelectableSubInfos.size(); i++) {
-                    mTabHost.addTab(buildTabSpec(String.valueOf(i),
-                            String.valueOf(mSelectableSubInfos.get(i).getDisplayName())));
-                }
-            }
-        }
         updatePhoneInfos();
+
+        if (getIntent().hasExtra(EXTRA_SLOT_ID)) {
+            setTitle(getString(R.string.sim_card_status_title, slotId + 1));
+        }
+
+        ActionBar actionBar = getActionBar();
+        if (actionBar != null) {
+            actionBar.setDisplayHomeAsUpEnabled(true);
+        }
     }
 
     @Override
@@ -192,6 +171,8 @@ public class SimStatus extends InstrumentedPreferenceActivity {
                         CB_AREA_INFO_SENDER_PERMISSION, null);
                 // Ask CellBroadcastReceiver to broadcast the latest area info received
                 Intent getLatestIntent = new Intent(GET_LATEST_CB_AREA_INFO_ACTION);
+                getLatestIntent.putExtra(PhoneConstants.SUBSCRIPTION_KEY,
+                        mSir.getSubscriptionId());
                 sendBroadcastAsUser(getLatestIntent, UserHandle.ALL,
                         CB_AREA_INFO_SENDER_PERMISSION);
             }
@@ -209,6 +190,15 @@ public class SimStatus extends InstrumentedPreferenceActivity {
         if (mShowLatestAreaInfo) {
             unregisterReceiver(mAreaInfoReceiver);
         }
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == android.R.id.home) {
+            finish();
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -255,6 +245,9 @@ public class SimStatus extends InstrumentedPreferenceActivity {
             show4GForLTE = con.getResources().getBoolean(id);
         } catch (NameNotFoundException e) {
             Log.e(TAG, "NameNotFoundException for show4GFotLTE");
+        } catch (Exception e) {
+            // Don't crash because of a missing resource.
+            // This is due to us having a togglable 4G option instead. 
         }
 
         if (networktype != null && networktype.equals("LTE") && show4GForLTE) {
@@ -307,7 +300,8 @@ public class SimStatus extends InstrumentedPreferenceActivity {
 
         String dataDisplay = Utils.getServiceStateString(dataState, mRes);
 
-        setSummaryText(KEY_SERVICE_STATE, "Voice: " + voiceDisplay + " / Data: " + dataDisplay);
+        setSummaryText(KEY_SERVICE_STATE, getString(R.string.sim_status_format_string,
+                voiceDisplay, dataDisplay));
 
         if (serviceState.getRoaming()) {
             setSummaryText(KEY_ROAMING_STATE, mRes.getString(R.string.radioInfo_roaming_in));
@@ -368,8 +362,6 @@ public class SimStatus extends InstrumentedPreferenceActivity {
         }
         // If formattedNumber is null or empty, it'll display as "Unknown".
         setSummaryText(KEY_PHONE_NUMBER, formattedNumber);
-        setSummaryText(KEY_IMEI, mPhone.getImei());
-        setSummaryText(KEY_IMEI_SV, mPhone.getDeviceSvn());
 
         if (!mShowLatestAreaInfo) {
             removePreferenceFromScreen(KEY_LATEST_AREA_INFO);
@@ -388,6 +380,12 @@ public class SimStatus extends InstrumentedPreferenceActivity {
                 }
 
                 mPhone = phone;
+                updateAreaInfo("");
+                Intent getLatestIntent = new Intent(GET_LATEST_CB_AREA_INFO_ACTION);
+                getLatestIntent.putExtra(PhoneConstants.SUBSCRIPTION_KEY,
+                        mSir.getSubscriptionId());
+                sendBroadcastAsUser(getLatestIntent, UserHandle.ALL,
+                        CB_AREA_INFO_SENDER_PERMISSION);
                 mPhoneStateListener = new PhoneStateListener(mSir.getSubscriptionId()) {
                     @Override
                     public void onDataConnectionStateChanged(int state) {
@@ -407,34 +405,5 @@ public class SimStatus extends InstrumentedPreferenceActivity {
                 };
             }
         }
-    }
-    private OnTabChangeListener mTabListener = new OnTabChangeListener() {
-        @Override
-        public void onTabChanged(String tabId) {
-            final int slotId = Integer.parseInt(tabId);
-            mSir = mSelectableSubInfos.get(slotId);
-
-            // The User has changed tab; update the SIM information.
-            updatePhoneInfos();
-            mTelephonyManager.listen(mPhoneStateListener,
-                    PhoneStateListener.LISTEN_DATA_CONNECTION_STATE
-                    | PhoneStateListener.LISTEN_SIGNAL_STRENGTHS
-                    | PhoneStateListener.LISTEN_SERVICE_STATE);
-            updateDataState();
-            updateNetworkType();
-            updatePreference();
-        }
-    };
-
-    private TabContentFactory mEmptyTabContent = new TabContentFactory() {
-        @Override
-        public View createTabContent(String tag) {
-            return new View(mTabHost.getContext());
-        }
-    };
-
-    private TabSpec buildTabSpec(String tag, String title) {
-        return mTabHost.newTabSpec(tag).setIndicator(title).setContent(
-                mEmptyTabContent);
     }
 }

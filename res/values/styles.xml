@@ -356,6 +356,7 @@
 
     <style name="SetupWizardStorageStyle" parent="@style/SuwThemeMaterial.Light">
         <item name="android:colorAccent">#ff009688</item>
+        <item name="suwDecorPaddingTop">@dimen/storage_decor_padding_top</item>
     </style>
 
     <style name="ProfilesPreferenceStyle">
@@ -369,6 +370,10 @@
         <item name="android:background">@android:drawable/divider_horizontal_dark</item>
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">1dp</item>
+    </style>
+
+    <style name="SolidSettingSeparator" parent="@style/settingSeparator">
+        <item name="android:background">@color/divider</item>
     </style>
 
     <style name="floating_action_button">

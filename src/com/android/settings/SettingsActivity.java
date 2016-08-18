@@ -41,6 +41,7 @@ import android.nfc.Tag;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.os.Process;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.preference.Preference;
@@ -83,6 +84,8 @@ import com.android.settings.blacklist.BlacklistSettings;
 import com.android.settings.bluetooth.BluetoothSettings;
 import com.android.settings.contributors.ContributorsCloudFragment;
 import com.android.settings.cyanogenmod.DisplayRotation;
+import com.android.settings.cyanogenmod.LiveLockScreenSettings;
+import com.android.settings.cyanogenmod.WeatherServiceSettings;
 import com.android.settings.dashboard.DashboardCategory;
 import com.android.settings.dashboard.DashboardSummary;
 import com.android.settings.dashboard.DashboardTile;
@@ -94,9 +97,13 @@ import com.android.settings.deviceinfo.PublicVolumeSettings;
 import com.android.settings.deviceinfo.StorageSettings;
 import com.android.settings.fuelgauge.PowerUsageDetail;
 import com.android.settings.fuelgauge.PowerUsageSummary;
+import com.android.settings.headsup.HeadsUpSettings;
 import com.android.settings.livedisplay.LiveDisplay;
+import com.android.settings.notification.NotificationManagerSettings;
 import com.android.settings.notification.OtherSoundSettings;
+import com.android.settings.notification.SoundSettings;
 import com.android.settings.profiles.NFCProfileTagCallback;
+import com.android.settings.profiles.ProfilesSettings;
 import com.android.settings.search.DynamicIndexableContentMonitor;
 import com.android.settings.search.Index;
 import com.android.settings.inputmethod.InputMethodAndLanguageSettings;
@@ -108,7 +115,6 @@ import com.android.settings.nfc.AndroidBeam;
 import com.android.settings.nfc.PaymentSettings;
 import com.android.settings.notification.AppNotificationSettings;
 import com.android.settings.notification.NotificationAccessSettings;
-import com.android.settings.notification.NotificationSettings;
 import com.android.settings.notification.NotificationStation;
 import com.android.settings.notification.OtherSoundSettings;
 import com.android.settings.notification.ZenAccessSettings;
@@ -124,6 +130,10 @@ import com.android.settings.search.DynamicIndexableContentMonitor;
 import com.android.settings.search.Index;
 import com.android.settings.privacyguard.PrivacyGuardPrefs;
 import com.android.settings.sim.SimSettings;
+import com.android.settings.slim.fragments.DozeSettingsFragment;
+import com.android.settings.slim.fragments.LockscreenShortcutFragment;
+import com.android.settings.slim.fragments.RecentAppSidebarFragment;
+import com.android.settings.temasek.FloatingWindows;
 import com.android.settings.tts.TextToSpeechSettings;
 import com.android.settings.users.UserSettings;
 import com.android.settings.vpn2.VpnSettings;
@@ -134,6 +144,7 @@ import com.android.settings.wifi.SavedAccessPointsWifiSettings;
 import com.android.settings.wifi.WifiSettings;
 import com.android.settings.wifi.p2p.WifiP2pSettings;
 
+import cyanogenmod.app.CMContextConstants;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
@@ -271,8 +282,11 @@ public class SettingsActivity extends Activity
             R.id.sim_settings,
             R.id.wireless_settings,
             R.id.device_section,
-            R.id.notification_settings,
-            R.id.display_settings,
+            R.id.sound_settings,
+            R.id.display_and_lights_settings,
+            R.id.lockscreen_settings,
+            R.id.notification_manager,
+            R.id.status_bar_settings,
             R.id.storage_settings,
             R.id.application_settings,
             R.id.battery_settings,
@@ -287,10 +301,10 @@ public class SettingsActivity extends Activity
             R.id.about_settings,
             R.id.accessibility_settings,
             R.id.print_settings,
-            R.id.nfc_payment_settings,
             R.id.home_settings,
             R.id.dashboard,
-            R.id.privacy_settings_cyanogenmod
+            R.id.privacy_settings_cyanogenmod,
+            R.id.button_settings
     };
 
     private static final String[] ENTRY_FRAGMENTS = {
@@ -310,6 +324,7 @@ public class SettingsActivity extends Activity
             UserDictionaryList.class.getName(),
             UserDictionarySettings.class.getName(),
             HomeSettings.class.getName(),
+            FloatingWindows.class.getName(),
             DisplaySettings.class.getName(),
             DeviceInfoSettings.class.getName(),
             ManageApplications.class.getName(),
@@ -347,7 +362,7 @@ public class SettingsActivity extends Activity
             PaymentSettings.class.getName(),
             KeyboardLayoutPickerFragment.class.getName(),
             ZenModeSettings.class.getName(),
-            NotificationSettings.class.getName(),
+            SoundSettings.class.getName(),
             ChooseLockPassword.ChooseLockPasswordFragment.class.getName(),
             ChooseLockPattern.ChooseLockPatternFragment.class.getName(),
             InstalledAppDetails.class.getName(),
@@ -369,7 +384,15 @@ public class SettingsActivity extends Activity
             com.android.settings.cyanogenmod.DisplayRotation.class.getName(),
             com.android.settings.cyanogenmod.PrivacySettings.class.getName(),
             BlacklistSettings.class.getName(),
-            ContributorsCloudFragment.class.getName()
+            ProfilesSettings.class.getName(),
+            ContributorsCloudFragment.class.getName(),
+            NotificationManagerSettings.class.getName(),
+            LiveLockScreenSettings.class.getName(),
+            WeatherServiceSettings.class.getName(),
+            HeadsUpSettings.class.getName(),
+            DozeSettingsFragment.class.getName(),
+            com.android.settings.slim.fragments.LockscreenShortcutFragment.class.getName(),
+            com.android.settings.slim.fragments.RecentAppSidebarFragment.class.getName()
     };
 
 
@@ -631,7 +654,7 @@ public class SettingsActivity extends Activity
                     1 /* one home activity by default */);
         } else {
             if (!mIsShowingDashboard) {
-                mDisplaySearch = false;
+                mDisplaySearch = Process.myUid() == Process.SYSTEM_UID;
                 // UP will be shown only if it is a sub settings
                 if (mIsShortcut) {
                     mDisplayHomeAsUpEnabled = isSubSettings;
@@ -1176,6 +1199,11 @@ public class SettingsActivity extends Activity
                                     com.android.internal.R.styleable.PreferenceHeader_fragment);
                             sa.recycle();
 
+                            sa = context.obtainStyledAttributes(attrs, R.styleable.DashboardTile);
+                            tile.switchControl = sa.getString(
+                                    R.styleable.DashboardTile_switchClass);
+                            sa.recycle();
+
                             if (curBundle == null) {
                                 curBundle = new Bundle();
                             }
@@ -1207,10 +1235,7 @@ public class SettingsActivity extends Activity
                                 curBundle = null;
                             }
 
-                            // Show the SIM Cards setting if there are more than 2 SIMs installed.
-                            if(tile.id != R.id.sim_settings || Utils.showSimCardTile(context)){
-                                category.addTile(tile);
-                            }
+                            category.addTile(tile);
 
                         } else if (innerNodeName.equals("external-tiles")) {
                             category.externalIndex = category.getTilesCount();
@@ -1254,8 +1279,7 @@ public class SettingsActivity extends Activity
                 DashboardTile tile = category.getTile(n);
                 boolean removeTile = false;
                 id = (int) tile.id;
-                if (id == R.id.operator_settings || id == R.id.manufacturer_settings
-                        || id == R.id.device_specific_gesture_settings) {
+                if (id == R.id.operator_settings || id == R.id.manufacturer_settings) {
                     if (!Utils.updateTileToSpecificActivityFromMetaDataOrRemove(this, tile)) {
                         removeTile = true;
                     }
@@ -1270,7 +1294,12 @@ public class SettingsActivity extends Activity
                         removeTile = true;
                     }
                  } else if (id == R.id.mobile_networks) {
-                    if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) {
+                    if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_TELEPHONY)
+                            || Utils.showSimCardTile(this)) {
+                        removeTile = true;
+                    }
+                }  else if (id == R.id.sim_settings) {
+                    if (!Utils.showSimCardTile(this)) {
                         removeTile = true;
                     }
                 } else if (id == R.id.data_usage_settings) {
@@ -1296,18 +1325,6 @@ public class SettingsActivity extends Activity
                             || !UserManager.supportsMultipleUsers()
                             || Utils.isMonkeyRunning()) {
                         removeTile = true;
-                    }
-                } else if (id == R.id.nfc_payment_settings) {
-                    if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_NFC)) {
-                        removeTile = true;
-                    } else {
-                        // Only show if NFC is on and we have the HCE feature
-                        NfcAdapter adapter = NfcAdapter.getDefaultAdapter(this);
-                        if (adapter == null || !adapter.isEnabled() ||
-                                !getPackageManager().hasSystemFeature(
-                                        PackageManager.FEATURE_NFC_HOST_CARD_EMULATION)) {
-                            removeTile = true;
-                        }
                     }
                 } else if (id == R.id.print_settings) {
                     boolean hasPrintingSupport = getPackageManager().hasSystemFeature(
@@ -1351,6 +1368,11 @@ public class SettingsActivity extends Activity
                     if (!supported) {
                         removeTile = true;
                     }
+//                } else if (id == R.id.weather_settings) {
+//                    if (!getPackageManager().hasSystemFeature(
+//                            CMContextConstants.Features.WEATHER_SERVICES)) {
+//                        removeTile = true;
+//                    }
                 }
 
                 if (UserHandle.MU_ENABLED && UserHandle.myUserId() != 0
@@ -1411,7 +1433,8 @@ public class SettingsActivity extends Activity
                         activityInfo.packageName, activityInfo.name);
                 Utils.updateTileToSpecificActivityFromMetaDataOrRemove(this, tile);
 
-                if (category.externalIndex == -1) {
+                if (category.externalIndex == -1
+                        || category.externalIndex > category.getTilesCount()) {
                     // If no location for external tiles has been specified for this category,
                     // then just put them at the end.
                     category.addTile(tile);

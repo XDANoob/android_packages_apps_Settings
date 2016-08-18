@@ -17,6 +17,10 @@
 
 package com.android.settings;
 import com.android.internal.logging.MetricsLogger;
+
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.content.SharedPreferences;
 import android.preference.CheckBoxPreference;
 
 import android.os.UserHandle;
@@ -31,7 +35,6 @@ import com.android.settings.DropDownPreference.Callback;
 import com.android.settings.search.BaseSearchIndexProvider;
 import com.android.settings.search.Indexable;
 
-import static android.provider.Settings.Secure.CAMERA_DOUBLE_TAP_POWER_GESTURE_DISABLED;
 import static android.provider.Settings.Secure.CAMERA_GESTURE_DISABLED;
 import static android.provider.Settings.Secure.DOUBLE_TAP_TO_WAKE;
 import static android.provider.Settings.Secure.DOZE_ENABLED;
@@ -50,8 +53,6 @@ import android.app.UiModeManager;
 import android.app.admin.DevicePolicyManager;
 import android.content.ContentResolver;
 import android.content.Context;
-import android.content.pm.PackageManager;
-import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.hardware.Sensor;
@@ -82,6 +83,10 @@ import java.util.ArrayList;
 import java.util.List;
 import com.android.settings.Utils;
 import com.android.settings.cyanogenmod.DisplayRotation;
+import com.android.settings.dashboard.DashboardContainerView;
+
+import cyanogenmod.hardware.CMHardwareManager;
+import cyanogenmod.hardware.LiveDisplayManager;
 import cyanogenmod.providers.CMSettings;
 
 public class DisplaySettings extends SettingsPreferenceFragment implements
@@ -91,45 +96,63 @@ public class DisplaySettings extends SettingsPreferenceFragment implements
     /** If there is no setting in the provider, use this. */
     private static final int FALLBACK_SCREEN_TIMEOUT_VALUE = 30000;
 
+    private static final String KEY_CATEGORY_LIGHTS = "lights";
+    private static final String KEY_CATEGORY_DISPLAY = "display";
+    private static final String KEY_CATEGORY_INTERFACE = "interface";
     private static final String KEY_SCREEN_TIMEOUT = "screen_timeout";
     private static final String KEY_LCD_DENSITY = "lcd_density";
     private static final String KEY_FONT_SIZE = "font_size";
     private static final String KEY_SCREEN_SAVER = "screensaver";
     private static final String KEY_LIFT_TO_WAKE = "lift_to_wake";
-    private static final String KEY_DOZE = "doze";
     private static final String KEY_TAP_TO_WAKE = "tap_to_wake";
     private static final String KEY_AUTO_BRIGHTNESS = "auto_brightness";
     private static final String KEY_AUTO_ROTATE = "auto_rotate";
     private static final String KEY_NIGHT_MODE = "night_mode";
     private static final String KEY_CAMERA_GESTURE = "camera_gesture";
-    private static final String KEY_CAMERA_DOUBLE_TAP_POWER_GESTURE
-            = "camera_double_tap_power_gesture";
     private static final String KEY_PROXIMITY_WAKE = "proximity_on_wake";
     private static final String KEY_DISPLAY_ROTATION = "display_rotation";
     private static final String KEY_WAKE_WHEN_PLUGGED_OR_UNPLUGGED = "wake_when_plugged_or_unplugged";
+    private static final String KEY_NOTIFICATION_LIGHT = "notification_light";
+    private static final String KEY_BATTERY_LIGHT = "battery_light";
+    private static final String KEY_DOZE_CATEGORY = "category_doze_options";
+    private static final String KEY_DOZE = "doze";
+    private static final String KEY_ADVANCED_DOZE_OPTIONS = "advanced_doze_options";
+    private static final String KEY_LIVEDISPLAY = "live_display";
+    private static final String KEY_HIGH_TOUCH_SENSITIVITY = "high_touch_sensitivity";
+
+    private static final String DASHBOARD_COLUMNS = "dashboard_columns";
+    private static final String DASHBOARD_SWITCHES = "dashboard_switches";
 
     private static final int DLG_GLOBAL_CHANGE_WARNING = 1;
 
     private ListPreference mLcdDensityPreference;
     private FontDialogPreference mFontSizePref;
     private PreferenceScreen mDisplayRotationPreference;
+    private PreferenceScreen mLiveDisplayPreference;
 
     private final Configuration mCurConfig = new Configuration();
 
     private ListPreference mScreenTimeoutPreference;
     private ListPreference mNightModePreference;
     private Preference mScreenSaverPreference;
+    private SwitchPreference mAccelerometer;
     private SwitchPreference mLiftToWakePreference;
-    private SwitchPreference mDozePreference;
     private SwitchPreference mTapToWakePreference;
+    private SwitchPreference mHighTouchSensitivity;
+    private SwitchPreference mProximityCheckOnWakePreference;
     private SwitchPreference mAutoBrightnessPreference;
     private SwitchPreference mWakeWhenPluggedOrUnplugged;
+    private ListPreference mDashboardColumns;
+    private ListPreference mDashboardSwitches;
+
+    private CMHardwareManager mHardware;
 
     private ContentObserver mAccelerometerRotationObserver =
             new ContentObserver(new Handler()) {
         @Override
         public void onChange(boolean selfChange) {
             updateDisplayRotationPreferenceDescription();
+            updateAccelerometerRotationSwitch();
         }
     };
 
@@ -141,7 +164,9 @@ public class DisplaySettings extends SettingsPreferenceFragment implements
         }
     };
     private SwitchPreference mCameraGesturePreference;
-    private SwitchPreference mCameraDoubleTapPowerGesturePreference;
+    private PreferenceCategory mDozeCategory;
+    private SwitchPreference mDozePreference;
+    private PreferenceScreen mAdvancedDozeOptions;
 
     @Override
     protected int getMetricsCategory() {
@@ -153,15 +178,30 @@ public class DisplaySettings extends SettingsPreferenceFragment implements
         super.onCreate(savedInstanceState);
         final Activity activity = getActivity();
         final ContentResolver resolver = activity.getContentResolver();
-        addPreferencesFromResource(R.xml.display_settings);
+        addPreferencesFromResource(R.xml.display);
 
+        mHardware = CMHardwareManager.getInstance(activity);
+
+        PreferenceCategory displayPrefs = (PreferenceCategory)
+                findPreference(KEY_CATEGORY_DISPLAY);
+        PreferenceCategory interfacePrefs = (PreferenceCategory)
+                findPreference(KEY_CATEGORY_INTERFACE);
         mDisplayRotationPreference = (PreferenceScreen) findPreference(KEY_DISPLAY_ROTATION);
+        mAccelerometer = (SwitchPreference) findPreference(DisplayRotation.KEY_ACCELEROMETER);
+        if (mAccelerometer != null) {
+            mAccelerometer.setPersistent(false);
+        }
+
+        mLiveDisplayPreference = (PreferenceScreen) findPreference(KEY_LIVEDISPLAY);
+        if (!LiveDisplayManager.getInstance(getActivity()).getConfig().isAvailable()) {
+            displayPrefs.removePreference(mLiveDisplayPreference);
+        }
 
         mScreenSaverPreference = findPreference(KEY_SCREEN_SAVER);
         if (mScreenSaverPreference != null
                 && getResources().getBoolean(
                         com.android.internal.R.bool.config_dreamsSupported) == false) {
-            getPreferenceScreen().removePreference(mScreenSaverPreference);
+            interfacePrefs.removePreference(mScreenSaverPreference);
         }
 
         mScreenTimeoutPreference = (ListPreference) findPreference(KEY_SCREEN_TIMEOUT);
@@ -176,7 +216,7 @@ public class DisplaySettings extends SettingsPreferenceFragment implements
         mLcdDensityPreference = (ListPreference) findPreference(KEY_LCD_DENSITY);
         if (mLcdDensityPreference != null) {
             if (UserHandle.myUserId() != UserHandle.USER_OWNER) {
-                getPreferenceScreen().removePreference(mLcdDensityPreference);
+                interfacePrefs.removePreference(mLcdDensityPreference);
             } else {
                 int defaultDensity = getDefaultDensity();
                 int currentDensity = getCurrentDensity();
@@ -216,12 +256,24 @@ public class DisplaySettings extends SettingsPreferenceFragment implements
         mFontSizePref.setOnPreferenceChangeListener(this);
         mFontSizePref.setOnPreferenceClickListener(this);
 
+        mDashboardColumns = (ListPreference) findPreference(DASHBOARD_COLUMNS);
+        mDashboardColumns.setValue(String.valueOf(Settings.System.getInt(
+                getContentResolver(), Settings.System.DASHBOARD_COLUMNS, DashboardContainerView.mDashboardValue)));
+        mDashboardColumns.setSummary(mDashboardColumns.getEntry());
+        mDashboardColumns.setOnPreferenceChangeListener(this);
+
+        mDashboardSwitches = (ListPreference) findPreference(DASHBOARD_SWITCHES);
+        mDashboardSwitches.setValue(String.valueOf(Settings.System.getInt(
+                getContentResolver(), Settings.System.DASHBOARD_SWITCHES, 1)));
+        mDashboardSwitches.setSummary(mDashboardSwitches.getEntry());
+        mDashboardSwitches.setOnPreferenceChangeListener(this);
+
         mAutoBrightnessPreference = (SwitchPreference) findPreference(KEY_AUTO_BRIGHTNESS);
         if (mAutoBrightnessPreference != null && isAutomaticBrightnessAvailable(getResources())) {
             mAutoBrightnessPreference.setOnPreferenceChangeListener(this);
         } else {
-            if (mAutoBrightnessPreference != null) {
-                removePreference(KEY_AUTO_BRIGHTNESS);
+            if (displayPrefs != null && mAutoBrightnessPreference != null) {
+                displayPrefs.removePreference(mAutoBrightnessPreference);
                 mAutoBrightnessPreference = null;
             }
         }
@@ -230,32 +282,28 @@ public class DisplaySettings extends SettingsPreferenceFragment implements
         if (mLiftToWakePreference != null && isLiftToWakeAvailable(activity)) {
             mLiftToWakePreference.setOnPreferenceChangeListener(this);
         } else {
-            if (mLiftToWakePreference != null) {
-                removePreference(KEY_LIFT_TO_WAKE);
+            if (displayPrefs != null && mLiftToWakePreference != null) {
+                displayPrefs.removePreference(mLiftToWakePreference);
                 mLiftToWakePreference = null;
             }
         }
 
-        mDozePreference = (SwitchPreference) findPreference(KEY_DOZE);
-        if (mDozePreference != null && Utils.isDozeAvailable(activity)) {
-            mDozePreference.setOnPreferenceChangeListener(this);
-        } else {
-            removePreference(KEY_DOZE);
-        }
-
-        if (isCameraGestureAvailable(getResources())) {
-            mCameraGesturePreference = (SwitchPreference) findPreference(KEY_CAMERA_GESTURE);
+        mCameraGesturePreference = (SwitchPreference) findPreference(KEY_CAMERA_GESTURE);
+        if (mCameraGesturePreference != null && isCameraGestureAvailable(getResources())) {
             mCameraGesturePreference.setOnPreferenceChangeListener(this);
         } else {
-            removePreference(KEY_CAMERA_GESTURE);
+            if (displayPrefs != null && mCameraGesturePreference != null) {
+                displayPrefs.removePreference(mCameraGesturePreference);
+            }
         }
 
-        if (isCameraDoubleTapPowerGestureAvailable(getResources())) {
-            mCameraDoubleTapPowerGesturePreference
-                    = (SwitchPreference) findPreference(KEY_CAMERA_DOUBLE_TAP_POWER_GESTURE);
-            mCameraDoubleTapPowerGesturePreference.setOnPreferenceChangeListener(this);
+        mDozeCategory = (PreferenceCategory) findPreference(KEY_DOZE_CATEGORY);
+        if (Utils.isDozeAvailable(activity)) {
+            // Doze master switch
+            mDozePreference = (SwitchPreference) findPreference(KEY_DOZE);
+            mDozePreference.setOnPreferenceChangeListener(this);
         } else {
-            removePreference(KEY_CAMERA_DOUBLE_TAP_POWER_GESTURE);
+            removePreference(KEY_DOZE_CATEGORY);
         }
 
         mNightModePreference = (ListPreference) findPreference(KEY_NIGHT_MODE);
@@ -271,18 +319,40 @@ public class DisplaySettings extends SettingsPreferenceFragment implements
         if (mTapToWakePreference != null && isTapToWakeAvailable(getResources())) {
             mTapToWakePreference.setOnPreferenceChangeListener(this);
         } else {
-            removePreference(KEY_TAP_TO_WAKE);
+            if (displayPrefs != null && mTapToWakePreference != null) {
+                displayPrefs.removePreference(mTapToWakePreference);
+            }
         }
 
-        boolean proximityCheckOnWait = getResources().getBoolean(
+        mHighTouchSensitivity = (SwitchPreference) findPreference(KEY_HIGH_TOUCH_SENSITIVITY);
+        if (!mHardware.isSupported(
+                CMHardwareManager.FEATURE_HIGH_TOUCH_SENSITIVITY)) {
+            displayPrefs.removePreference(mHighTouchSensitivity);
+            mHighTouchSensitivity = null;
+        } else {
+            mHighTouchSensitivity.setChecked(
+                    mHardware.get(CMHardwareManager.FEATURE_HIGH_TOUCH_SENSITIVITY));
+        }
+
+        mProximityCheckOnWakePreference = (SwitchPreference) findPreference(KEY_PROXIMITY_WAKE);
+        boolean proximityCheckOnWake = getResources().getBoolean(
                 org.cyanogenmod.platform.internal.R.bool.config_proximityCheckOnWake);
-        if (!proximityCheckOnWait) {
-            removePreference(KEY_PROXIMITY_WAKE);
-            CMSettings.System.putInt(getContentResolver(), CMSettings.System.PROXIMITY_ON_WAKE, 1);
+        if (!proximityCheckOnWake) {
+            if (displayPrefs != null && mProximityCheckOnWakePreference != null) {
+                displayPrefs.removePreference(mProximityCheckOnWakePreference);
+            }
+            CMSettings.System.putInt(getContentResolver(), CMSettings.System.PROXIMITY_ON_WAKE, 0);
+        } else {
+            boolean proximityCheckOnWakeDefault = getResources().getBoolean(
+                    org.cyanogenmod.platform.internal.R.bool.config_proximityCheckOnWakeEnabledByDefault);
+            mProximityCheckOnWakePreference.setChecked(CMSettings.System.getInt(getContentResolver(),
+                    CMSettings.System.PROXIMITY_ON_WAKE,
+                    (proximityCheckOnWakeDefault ? 1 : 0)) == 1);
         }
 
         mWakeWhenPluggedOrUnplugged =
                 (SwitchPreference) findPreference(KEY_WAKE_WHEN_PLUGGED_OR_UNPLUGGED);
+        initPulse((PreferenceCategory) findPreference(KEY_CATEGORY_LIGHTS));
     }
 
     private int getDefaultDensity() {
@@ -325,6 +395,11 @@ public class DisplaySettings extends SettingsPreferenceFragment implements
         return res.getBoolean(com.android.internal.R.bool.config_automatic_brightness_available);
     }
 
+    private void updateAccelerometerRotationSwitch() {
+        if (mAccelerometer != null) {
+            mAccelerometer.setChecked(!RotationPolicy.isRotationLocked(getActivity()));
+        }
+    }
     private void updateDisplayRotationPreferenceDescription() {
         if (mDisplayRotationPreference == null) {
             // The preference was removed, do nothing
@@ -380,29 +455,24 @@ public class DisplaySettings extends SettingsPreferenceFragment implements
                 !SystemProperties.getBoolean("gesture.disable_camera_launch", false);
     }
 
-    private static boolean isCameraDoubleTapPowerGestureAvailable(Resources res) {
-        return res.getBoolean(
-                com.android.internal.R.bool.config_cameraDoubleTapPowerGestureEnabled);
-    }
-
     private void updateTimeoutPreferenceDescription(long currentTimeout) {
         ListPreference preference = mScreenTimeoutPreference;
         String summary;
-        if (currentTimeout < 0) {
-            // Unsupported value
-            summary = "";
-        } else {
+        summary = "";
+        if (currentTimeout >= 0) {
             final CharSequence[] entries = preference.getEntries();
             final CharSequence[] values = preference.getEntryValues();
-            if (entries == null || entries.length == 0) {
-                summary = "";
-            } else {
+            if (entries != null && entries.length > 0) {
+                int maxEntries = Math.min(entries.length, values.length);
                 int best = 0;
-                for (int i = 0; i < values.length; i++) {
+                for (int i = 0; i < maxEntries; i++) {
                     long timeout = Long.parseLong(values[i].toString());
                     if (currentTimeout >= timeout) {
                         best = i;
                     }
+                }
+                if (best >= entries.length) {
+                  best = entries.length - 1;
                 }
                 summary = preference.getContext().getString(R.string.screen_timeout_summary,
                         entries[best]);
@@ -477,11 +547,14 @@ public class DisplaySettings extends SettingsPreferenceFragment implements
         boolean wakeUpWhenPluggedOrUnpluggedConfig = getResources().getBoolean(
                 com.android.internal.R.bool.config_unplugTurnsOnScreen);
 
+        if (mWakeWhenPluggedOrUnplugged != null) {
         mWakeWhenPluggedOrUnplugged.setChecked(CMSettings.Global.getInt(getContentResolver(),
                 CMSettings.Global.WAKE_WHEN_PLUGGED_OR_UNPLUGGED,
                 (wakeUpWhenPluggedOrUnpluggedConfig ? 1 : 0)) == 1);
+        }
 
         updateState();
+        updateAccelerometerRotationSwitch();
     }
 
     @Override
@@ -543,13 +616,6 @@ public class DisplaySettings extends SettingsPreferenceFragment implements
             int value = Settings.Secure.getInt(getContentResolver(), CAMERA_GESTURE_DISABLED, 0);
             mCameraGesturePreference.setChecked(value == 0);
         }
-
-        // Update camera gesture #2 if it is available.
-        if (mCameraDoubleTapPowerGesturePreference != null) {
-            int value = Settings.Secure.getInt(
-                    getContentResolver(), CAMERA_DOUBLE_TAP_POWER_GESTURE_DISABLED, 0);
-            mCameraDoubleTapPowerGesturePreference.setChecked(value == 0);
-        }
     }
 
     private void updateScreenSaverSummary() {
@@ -600,6 +666,22 @@ public class DisplaySettings extends SettingsPreferenceFragment implements
         task.execute();
     }
 
+    // === Pulse notification light ===
+
+    private void initPulse(PreferenceCategory parent) {
+        if (!getResources().getBoolean(
+                com.android.internal.R.bool.config_intrusiveNotificationLed)) {
+            parent.removePreference(parent.findPreference(KEY_NOTIFICATION_LIGHT));
+        }
+        if (!getResources().getBoolean(
+                com.android.internal.R.bool.config_intrusiveBatteryLed)
+                || UserHandle.myUserId() != UserHandle.USER_OWNER) {
+            parent.removePreference(parent.findPreference(KEY_BATTERY_LIGHT));
+        }
+        if (parent.getPreferenceCount() == 0) {
+            getPreferenceScreen().removePreference(parent);
+        }
+    }
     /**
      * Reads the current font size and sets the value in the summary text
      */
@@ -632,6 +714,15 @@ public class DisplaySettings extends SettingsPreferenceFragment implements
                     CMSettings.Global.WAKE_WHEN_PLUGGED_OR_UNPLUGGED,
                     mWakeWhenPluggedOrUnplugged.isChecked() ? 1 : 0);
             return true;
+        } else if (preference == mAccelerometer) {
+            RotationPolicy.setRotationLockForAccessibility(getActivity(),
+                    !mAccelerometer.isChecked());
+        } else if (preference == mHighTouchSensitivity) {
+            boolean mHighTouchSensitivityEnable = mHighTouchSensitivity.isChecked();
+            CMSettings.System.putInt(getActivity().getContentResolver(),
+                    CMSettings.System.HIGH_TOUCH_SENSITIVITY_ENABLE,
+                    mHighTouchSensitivityEnable ? 1 : 0);
+            return true;
         }
 
         return super.onPreferenceTreeClick(preferenceScreen, preference);
@@ -650,13 +741,12 @@ public class DisplaySettings extends SettingsPreferenceFragment implements
             }
         }
         if (KEY_LCD_DENSITY.equals(key)) {
-            try {
-                int value = Integer.parseInt((String) objValue);
-                writeLcdDensityPreference(preference.getContext(), value);
-                updateLcdDensityPreferenceDescription(value);
-            } catch (NumberFormatException e) {
-                Log.e(TAG, "could not persist display density setting", e);
+            String newValue = (String) objValue;
+            String oldValue = mLcdDensityPreference.getValue();
+            if (!TextUtils.equals(newValue, oldValue)) {
+                showLcdConfirmationDialog((String) objValue);
             }
+            return false;
         }
         if (KEY_FONT_SIZE.equals(key)) {
             writeFontSizePreference(objValue);
@@ -683,11 +773,6 @@ public class DisplaySettings extends SettingsPreferenceFragment implements
             Settings.Secure.putInt(getContentResolver(), CAMERA_GESTURE_DISABLED,
                     value ? 0 : 1 /* Backwards because setting is for disabling */);
         }
-        if (preference == mCameraDoubleTapPowerGesturePreference) {
-            boolean value = (Boolean) objValue;
-            Settings.Secure.putInt(getContentResolver(), CAMERA_DOUBLE_TAP_POWER_GESTURE_DISABLED,
-                    value ? 0 : 1 /* Backwards because setting is for disabling */);
-        }
         if (preference == mNightModePreference) {
             try {
                 final int value = Integer.parseInt((String) objValue);
@@ -698,7 +783,41 @@ public class DisplaySettings extends SettingsPreferenceFragment implements
                 Log.e(TAG, "could not persist night mode setting", e);
             }
         }
+        if (preference == mDashboardSwitches) {
+            Settings.System.putInt(getContentResolver(), Settings.System.DASHBOARD_SWITCHES,
+                    Integer.valueOf((String) objValue));
+            mDashboardSwitches.setValue(String.valueOf(objValue));
+            mDashboardSwitches.setSummary(mDashboardSwitches.getEntry());
+            return true;
+        }
+        if (preference == mDashboardColumns) {
+            Settings.System.putInt(getContentResolver(), Settings.System.DASHBOARD_COLUMNS,
+                    Integer.valueOf((String) objValue));
+            mDashboardColumns.setValue(String.valueOf(objValue));
+            mDashboardColumns.setSummary(mDashboardColumns.getEntry());
+            return true;
+        }
         return true;
+    }
+
+    private void showLcdConfirmationDialog(final String lcdDensity) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+        builder.setTitle(R.string.lcd_density);
+        builder.setMessage(R.string.lcd_density_prompt_message);
+        builder.setPositiveButton(R.string.print_restart,
+                new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                try {
+                    int value = Integer.parseInt(lcdDensity);
+                    writeLcdDensityPreference(getActivity(), value);
+                    updateLcdDensityPreferenceDescription(value);
+                } catch (NumberFormatException e) {
+                    Log.e(TAG, "could not persist display density setting", e);
+                }
+            }
+        });
+        builder.setNegativeButton(android.R.string.cancel, null);
+        builder.show();
     }
 
     @Override
@@ -729,7 +848,7 @@ public class DisplaySettings extends SettingsPreferenceFragment implements
                             new ArrayList<SearchIndexableResource>();
 
                     SearchIndexableResource sir = new SearchIndexableResource(context);
-                    sir.xmlResId = R.xml.display_settings;
+                    sir.xmlResId = R.xml.display;
                     result.add(sir);
 
                     return result;
@@ -737,10 +856,20 @@ public class DisplaySettings extends SettingsPreferenceFragment implements
 
                 @Override
                 public List<String> getNonIndexableKeys(Context context) {
+                    final CMHardwareManager hardware = CMHardwareManager.getInstance(context);
+
                     ArrayList<String> result = new ArrayList<String>();
                     if (!context.getResources().getBoolean(
                             com.android.internal.R.bool.config_dreamsSupported)) {
                         result.add(KEY_SCREEN_SAVER);
+                    }
+                    if (!context.getResources().getBoolean(
+                            com.android.internal.R.bool.config_intrusiveNotificationLed)) {
+                        result.add(KEY_NOTIFICATION_LIGHT);
+                    }
+                    if (!context.getResources().getBoolean(
+                            com.android.internal.R.bool.config_intrusiveBatteryLed)) {
+                        result.add(KEY_BATTERY_LIGHT);
                     }
                     if (!isAutomaticBrightnessAvailable(context.getResources())) {
                         result.add(KEY_AUTO_BRIGHTNESS);
@@ -750,6 +879,7 @@ public class DisplaySettings extends SettingsPreferenceFragment implements
                     }
                     if (!Utils.isDozeAvailable(context)) {
                         result.add(KEY_DOZE);
+                        result.add(KEY_ADVANCED_DOZE_OPTIONS);
                     }
                     if (!isTapToWakeAvailable(context.getResources())) {
                         result.add(KEY_TAP_TO_WAKE);
@@ -761,10 +891,23 @@ public class DisplaySettings extends SettingsPreferenceFragment implements
                     if (!isCameraGestureAvailable(context.getResources())) {
                         result.add(KEY_CAMERA_GESTURE);
                     }
-                    if (!isCameraDoubleTapPowerGestureAvailable(context.getResources())) {
-                        result.add(KEY_CAMERA_DOUBLE_TAP_POWER_GESTURE);
+                    if (hardware.isSupported(CMHardwareManager.FEATURE_HIGH_TOUCH_SENSITIVITY)) {
+                        result.add(KEY_HIGH_TOUCH_SENSITIVITY);
                     }
                     return result;
                 }
             };
+
+    public static void restore(Context context) {
+        final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        final CMHardwareManager hardware = CMHardwareManager.getInstance(context);
+        if (hardware.isSupported(CMHardwareManager.FEATURE_HIGH_TOUCH_SENSITIVITY)) {
+            final boolean enabled = prefs.getBoolean(KEY_HIGH_TOUCH_SENSITIVITY,
+                    hardware.get(CMHardwareManager.FEATURE_HIGH_TOUCH_SENSITIVITY));
+            CMSettings.System.putInt(context.getContentResolver(),
+                    CMSettings.System.HIGH_TOUCH_SENSITIVITY_ENABLE,
+                    enabled ? 1 : 0);
+        }
+    }
+
 }

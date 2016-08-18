@@ -25,6 +25,8 @@ import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.UserHandle;
+import android.provider.Settings;
 import android.os.Message;
 import android.text.TextUtils;
 import android.util.Log;
@@ -35,6 +37,7 @@ import android.view.MenuInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.Switch;
 import android.widget.TextView;
 
 import com.android.internal.logging.MetricsLogger;
@@ -42,6 +45,8 @@ import com.android.settings.HelpUtils;
 import com.android.settings.InstrumentedFragment;
 import com.android.settings.R;
 import com.android.settings.SettingsActivity;
+import com.android.settings.Utils;
+import com.android.settings.widget.SwitchBar;
 
 import java.util.List;
 
@@ -103,6 +108,10 @@ public class DashboardSummary extends InstrumentedFragment {
         filter.addAction(Intent.ACTION_PACKAGE_REPLACED);
         filter.addDataScheme("package");
         getActivity().registerReceiver(mHomePackageReceiver, filter);
+
+        final IntentFilter airplaneModeFilter
+                = new IntentFilter(Intent.ACTION_AIRPLANE_MODE_CHANGED);
+        getActivity().registerReceiver(mHomePackageReceiver, airplaneModeFilter);
     }
 
     @Override
@@ -158,10 +167,14 @@ public class DashboardSummary extends InstrumentedFragment {
 
                 DashboardTileView tileView = new DashboardTileView(context);
                 updateTileView(context, res, tile, tileView.getImageView(),
-                        tileView.getTitleTextView(), tileView.getStatusTextView());
+                        tileView.getTitleTextView(), tileView.getStatusTextView(),
+                        tileView.getSwitchView());
 
                 tileView.setTile(tile);
 
+                if (tile.id == R.id.mobile_networks) {
+                    tileView.setEnabledTile(!Utils.isAirplaneModeEnabled(context));
+                }
                 categoryContent.addView(tileView);
             }
 
@@ -172,8 +185,8 @@ public class DashboardSummary extends InstrumentedFragment {
         Log.d(LOG_TAG, "rebuildUI took: " + delta + " ms");
     }
 
-    private void updateTileView(Context context, Resources res, DashboardTile tile,
-            ImageView tileIcon, TextView tileTextView, TextView statusTextView) {
+    public void updateTileView(Context context, Resources res, DashboardTile tile,
+            ImageView tileIcon, TextView tileTextView, TextView statusTextView, Switch switchBar) {
 
         if (!TextUtils.isEmpty(tile.iconPkg)) {
             try {
@@ -189,6 +202,7 @@ public class DashboardSummary extends InstrumentedFragment {
                         context.getTheme().resolveAttribute(tintColorValue.data,
                                 tintColorValue, true);
                     }
+                    drawable.setTintMode(android.graphics.PorterDuff.Mode.SRC_ATOP);
                     drawable.setTint(tintColorValue.data);
                 }
                 tileIcon.setImageDrawable(drawable);
@@ -212,6 +226,25 @@ public class DashboardSummary extends InstrumentedFragment {
         } else {
             statusTextView.setVisibility(View.GONE);
         }
+
+        if (tile.switchControl != null) {
+            boolean isPrimary = UserHandle.getCallingUserId() == UserHandle.USER_OWNER;
+            int dashboardSwitches = isPrimary ? getDashboardSwitches(context) : 1;
+
+            if (dashboardSwitches == 0) {
+                switchBar.setVisibility(View.GONE);
+            }
+            if (dashboardSwitches == 1) {
+                switchBar.setVisibility(View.VISIBLE);
+            }
+        } else {
+            // do nothing
+        }
+    }
+
+    private static int getDashboardSwitches(Context context) {
+        return Settings.System.getInt(context.getContentResolver(),
+                Settings.System.DASHBOARD_SWITCHES, 1);
     }
 
     private void sendRebuildUI() {

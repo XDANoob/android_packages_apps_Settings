@@ -18,16 +18,21 @@ package com.android.settings.dashboard;
 
 import android.app.Activity;
 import android.content.Context;
+import android.provider.Settings;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.Switch;
 import android.widget.TextView;
 
 import com.android.settings.ProfileSelectDialog;
 import com.android.settings.R;
 import com.android.settings.Utils;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 
 public class DashboardTileView extends FrameLayout implements View.OnClickListener {
 
@@ -37,6 +42,8 @@ public class DashboardTileView extends FrameLayout implements View.OnClickListen
     private TextView mTitleTextView;
     private TextView mStatusTextView;
     private View mDivider;
+    private Switch mSwitch;
+    private GenericSwitchToggle mSwitchToggle;
 
     private int mColSpan = DEFAULT_COL_SPAN;
 
@@ -52,9 +59,25 @@ public class DashboardTileView extends FrameLayout implements View.OnClickListen
         final View view = LayoutInflater.from(context).inflate(R.layout.dashboard_tile, this);
 
         mImageView = (ImageView) view.findViewById(R.id.icon);
+
         mTitleTextView = (TextView) view.findViewById(R.id.title);
+        if (Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.DASHBOARD_TILEVIEW_DOUBLE_LINES, 0) == 1) {
+        mTitleTextView.setSingleLine(false);
+        } else {
+        mTitleTextView.setSingleLine(true);
+        }
+
         mStatusTextView = (TextView) view.findViewById(R.id.status);
+
         mDivider = view.findViewById(R.id.tile_divider);
+        if (Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.DASHBOARD_TILEVIEW_DIVIDERS, 0) == 1) {
+        mDivider.setVisibility(View.GONE);
+        } else {
+        mDivider.setVisibility(View.VISIBLE);
+        }
+        mSwitch = (Switch) view.findViewById(R.id.dashboard_switch);
 
         setOnClickListener(this);
         setBackgroundResource(R.drawable.dashboard_tile_background);
@@ -73,8 +96,41 @@ public class DashboardTileView extends FrameLayout implements View.OnClickListen
         return mImageView;
     }
 
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        if (mSwitchToggle != null) {
+            mSwitchToggle.resume(getContext());
+        }
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        if (mSwitchToggle != null) {
+            mSwitchToggle.pause();
+        }
+    }
+
     public void setTile(DashboardTile tile) {
         mTile = tile;
+
+        if (mTile.switchControl != null) {
+            try {
+                Class<?> clazz = getClass().getClassLoader().loadClass(mTile.switchControl);
+                Constructor<?> constructor = clazz.getConstructor(Context.class, Switch.class);
+                GenericSwitchToggle sw = (GenericSwitchToggle) constructor.newInstance(
+                        getContext(), mSwitch);
+                mSwitchToggle = sw;
+                mSwitchToggle.resume(getContext());
+            } catch (ClassNotFoundException
+                    | NoSuchMethodException
+                    | InvocationTargetException
+                    | InstantiationException
+                    | IllegalAccessException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     public void setDividerVisibility(boolean visible) {
@@ -104,5 +160,19 @@ public class DashboardTileView extends FrameLayout implements View.OnClickListen
                 getContext().startActivity(mTile.intent);
             }
         }
+    }
+
+    public Switch getSwitchView() {
+        return mSwitch;
+    }
+
+    public void setEnabledTile(boolean enabled) {
+        mImageView.setAlpha(enabled ? 1f : Utils.DISABLED_ALPHA);
+        mTitleTextView.setEnabled(enabled);
+        mStatusTextView.setEnabled(enabled);
+        mSwitch.setEnabled(enabled);
+        mSwitch.setClickable(enabled);
+        setFocusable(enabled);
+        setEnabled(enabled);
     }
 }

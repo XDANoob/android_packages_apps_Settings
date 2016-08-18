@@ -40,8 +40,9 @@ import com.android.settings.inputmethod.InputMethodAndLanguageSettings;
 import com.android.settings.location.LocationSettings;
 import com.android.settings.location.ScanningSettings;
 import com.android.settings.net.DataUsageMeteredSettings;
-import com.android.settings.notification.NotificationSettings;
+import com.android.settings.notification.NotificationManagerSettings;
 import com.android.settings.notification.OtherSoundSettings;
+import com.android.settings.notification.SoundSettings;
 import com.android.settings.notification.ZenModeAutomationSettings;
 import com.android.settings.notification.ZenModePrioritySettings;
 import com.android.settings.notification.ZenModeSettings;
@@ -51,6 +52,9 @@ import com.android.settings.users.UserSettings;
 import com.android.settings.wifi.AdvancedWifiSettings;
 import com.android.settings.wifi.SavedAccessPointsWifiSettings;
 import com.android.settings.wifi.WifiSettings;
+
+import com.android.settings.ButtonSettings;
+import com.android.settings.cyanogenmod.StatusBarSettings;
 
 import java.util.HashMap;
 
@@ -116,12 +120,15 @@ public final class Ranking {
 
         // Display
         sRankMap.put(DisplaySettings.class.getName(), RANK_DISPLAY);
+        sRankMap.put(ButtonSettings.class.getName(), RANK_DISPLAY);
+        sRankMap.put(StatusBarSettings.class.getName(), RANK_DISPLAY);
 
         // Wallpapers
         sRankMap.put(WallpaperTypeSettings.class.getName(), RANK_WALLPAPER);
 
         // Notifications
-        sRankMap.put(NotificationSettings.class.getName(), RANK_NOTIFICATIONS);
+        sRankMap.put(SoundSettings.class.getName(), RANK_NOTIFICATIONS);
+        sRankMap.put(NotificationManagerSettings.class.getName(), RANK_NOTIFICATIONS);
         sRankMap.put(OtherSoundSettings.class.getName(), RANK_NOTIFICATIONS);
         sRankMap.put(ZenModeSettings.class.getName(), RANK_NOTIFICATIONS);
         sRankMap.put(ZenModePrioritySettings.class.getName(), RANK_NOTIFICATIONS);
@@ -154,6 +161,7 @@ public final class Ranking {
 
         // Privacy
         sRankMap.put(PrivacySettings.class.getName(), RANK_PRIVACY);
+        sRankMap.put(com.android.settings.cyanogenmod.PrivacySettings.class.getName(), RANK_PRIVACY);
 
         // Date / Time
         sRankMap.put(DateTimeSettings.class.getName(), RANK_DATE_TIME);

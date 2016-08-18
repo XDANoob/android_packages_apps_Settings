@@ -106,8 +106,6 @@ public class ExpandedDesktopPreferenceFragment extends SettingsPreferenceFragmen
         }
         mAllPackagesAdapter = new AllPackagesAdapter(getActivity());
 
-        mAllPackagesAdapter.notifyDataSetChanged();
-
         setHasOptionsMenu(true);
     }
 
@@ -260,7 +258,7 @@ public class ExpandedDesktopPreferenceFragment extends SettingsPreferenceFragmen
 
     @Override
     public void onRebuildComplete(ArrayList<ApplicationsState.AppEntry> entries) {
-        handleAppEntries(entries);
+        rebuild();
     }
 
     @Override
@@ -282,7 +280,7 @@ public class ExpandedDesktopPreferenceFragment extends SettingsPreferenceFragmen
 
     @Override
     public void onLoadEntriesCompleted() {
-
+        rebuild();
     }
 
     private void handleAppEntries(List<ApplicationsState.AppEntry> entries) {
@@ -335,6 +333,7 @@ public class ExpandedDesktopPreferenceFragment extends SettingsPreferenceFragmen
                 mActivityFilter, ApplicationsState.ALPHA_COMPARATOR);
         if (newEntries != null) {
             handleAppEntries(newEntries);
+            mAllPackagesAdapter.notifyDataSetChanged();
         }
     }
 
@@ -348,14 +347,14 @@ public class ExpandedDesktopPreferenceFragment extends SettingsPreferenceFragmen
     int getStateDrawable(int state) {
         switch (state) {
             case STATE_STATUS_HIDDEN:
-                return R.drawable.ic_settings_extdesk_hidestatusbar;
+                return R.drawable.ic_extdesk_hidestatusbar;
             case STATE_NAVIGATION_HIDDEN:
-                return R.drawable.ic_settings_extdesk_hidenavbar;
+                return R.drawable.ic_extdesk_hidenavbar;
             case STATE_BOTH_HIDDEN:
-                return R.drawable.ic_settings_extdesk_hideboth;
+                return R.drawable.ic_extdesk_hideboth;
             case STATE_DISABLED:
             default:
-                return R.drawable.ic_settings_extdesk_hidenone;
+                return R.drawable.ic_extdesk_hidenone;
         }
     }
 
@@ -523,21 +522,24 @@ public class ExpandedDesktopPreferenceFragment extends SettingsPreferenceFragmen
         }
     }
 
-    private static class ModeAdapter extends BaseAdapter {
+    private class ModeAdapter extends BaseAdapter {
 
         private final LayoutInflater inflater;
+
+        // We have navbar on/off switch for every device
+        private final boolean hasNavBarByDefault = getResources().getBoolean(
+                com.android.internal.R.bool.config_showNavigationBar);
+        private final boolean isNavigationBarOn = Settings.System.getInt(getContentResolver(),
+                Settings.System.NAVIGATION_BAR_SHOW, hasNavBarByDefault ? 1 : 0) == 1;
+
         private boolean hasNavigationBar = true;
+
         private final int[] items = {R.string.expanded_hide_nothing, R.string.expanded_hide_status,
                 R.string.expanded_hide_navigation, R.string.expanded_hide_both};
 
         private ModeAdapter(Context context) {
             inflater = LayoutInflater.from(context);
-
-            try {
-                hasNavigationBar = WindowManagerGlobal.getWindowManagerService().hasNavigationBar();
-            } catch (RemoteException e) {
-                // Do nothing
-            }
+            hasNavigationBar = isNavigationBarOn;
         }
 
         @Override

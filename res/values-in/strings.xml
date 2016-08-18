@@ -2512,6 +2512,7 @@
     <string name="keywords_default_apps" msgid="3581727483175522599">"aplikasi default"</string>
     <string name="keywords_ignore_optimizations" msgid="946516741848647905">"abaikan pengoptimalan nonaktifkan aplikasi siaga"</string>
     <string name="keywords_color_mode" msgid="4670570451841540200">"terang rgb srgb warna alami standar"</string>
+    <string name="keywords_color_temperature" msgid="2688947724153266364">"suhu foto D65 D73 putih kuning biru hangat sejuk"</string>
     <string name="keywords_lockscreen" msgid="4806191868723291541">"geser pin pola sandi"</string>
     <string name="setup_wifi_nfc_tag" msgid="9028353016222911016">"Siapkan Tag NFC Wi-Fi"</string>
     <string name="write_tag" msgid="8571858602896222537">"Tulis"</string>
@@ -2840,7 +2841,7 @@
     <string name="memory_performance" msgid="5661005192284103281">"Kinerja"</string>
     <string name="total_memory" msgid="2017287600738630165">"Total memori"</string>
     <string name="average_used" msgid="5338339266517245782">"Rata-rata digunakan (%)"</string>
-    <string name="free_memory" msgid="4003936141603549746">"Kosong"</string>
+    <string name="free_memory" msgid="4003936141603549746">"Bebas"</string>
     <string name="memory_usage_apps" msgid="5650192998273294098">"Memori yang digunakan oleh aplikasi"</string>
     <plurals name="memory_usage_apps_summary" formatted="false" msgid="6089210945574265774">
       <item quantity="other"><xliff:g id="COUNT">%1$d</xliff:g> aplikasi menggunakan memori dalam <xliff:g id="DURATION_1">%2$s</xliff:g> terakhir</item>
@@ -2900,4 +2901,7 @@
   </string-array>
     <string name="picture_color_mode" msgid="4560755008730283695">"Mode warna gambar"</string>
     <string name="picture_color_mode_desc" msgid="1141891467675548590">"Gunakan sRGB"</string>
+    <string name="color_temperature" msgid="2070126836910615605">"Suhu foto sejuk"</string>
+    <string name="color_temperature_desc" msgid="4793729830226404052">"Gunakan suhu tampilan yang lebih sejuk"</string>
+    <string name="color_temperature_toast" msgid="4974218172133854827">"Untuk menerapkan perubahan warna, nonaktifkan layar"</string>
 </resources>

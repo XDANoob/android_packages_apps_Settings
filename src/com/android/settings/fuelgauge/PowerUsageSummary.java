@@ -30,6 +30,8 @@ import android.net.Uri;
 import android.os.BatteryManager;
 import android.os.BatteryStats;
 import android.os.Bundle;
+import android.content.DialogInterface;
+import android.content.DialogInterface.OnClickListener;
 import android.os.Handler;
 import android.os.Message;
 import android.os.PowerManager;
@@ -91,9 +93,10 @@ public class PowerUsageSummary extends PowerUsageBase
     private static final String KEY_BATTERY_SAVER = "low_power";
 
     private static final int MENU_STATS_TYPE = Menu.FIRST;
-    private static final int MENU_BATTERY_SAVER = Menu.FIRST + 2;
-    private static final int MENU_HIGH_POWER_APPS = Menu.FIRST + 3;
-    private static final int MENU_HELP = Menu.FIRST + 4;
+    private static final int MENU_STATS_RESET = Menu.FIRST + 2;
+    private static final int MENU_BATTERY_SAVER = Menu.FIRST + 3;
+    private static final int MENU_HIGH_POWER_APPS = Menu.FIRST + 4;
+    private static final int MENU_HELP = Menu.FIRST + 5;
 
     private BatteryHistoryPreference mHistPref;
     private PreferenceGroup mAppListGroup;
@@ -236,9 +239,12 @@ public class PowerUsageSummary extends PowerUsageBase
     public boolean onPreferenceChange(Preference preference, Object newValue) {
         if (newValue != null) {
             if (preference == mPerfProfilePref) {
-                mPerf.setPowerProfile(Integer.valueOf((String)(newValue)));
-                updatePerformanceSummary();
-                return true;
+                Integer value = Integer.valueOf((String) (newValue));
+                boolean powerProfileUpdated = mPerf.setPowerProfile(value);
+                if (powerProfileUpdated) {
+                    updatePerformanceSummary();
+                }
+                return powerProfileUpdated;
             }
         }
         return false;
@@ -252,6 +258,12 @@ public class PowerUsageSummary extends PowerUsageBase
                     .setAlphabeticShortcut('t');
         }
 
+        MenuItem reset = menu.add(0, MENU_STATS_RESET, 0, R.string.battery_stats_reset)
+                .setIcon(R.drawable.ic_actionbar_delete)
+                .setAlphabeticShortcut('d');
+        reset.setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM |
+                MenuItem.SHOW_AS_ACTION_WITH_TEXT);
+
         MenuItem batterySaver = menu.add(0, MENU_BATTERY_SAVER, 0, R.string.battery_saver);
         batterySaver.setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER);
 
@@ -263,6 +275,9 @@ public class PowerUsageSummary extends PowerUsageBase
     public boolean onOptionsItemSelected(MenuItem item) {
         final SettingsActivity sa = (SettingsActivity) getActivity();
         switch (item.getItemId()) {
+            case MENU_STATS_RESET:
+                resetStats();
+                return true;
             case MENU_STATS_TYPE:
                 if (mStatsType == BatteryStats.STATS_SINCE_CHARGED) {
                     mStatsType = BatteryStats.STATS_SINCE_UNPLUGGED;
@@ -274,10 +289,8 @@ public class PowerUsageSummary extends PowerUsageBase
             case MENU_BATTERY_SAVER:
                 Resources res = getResources();
 
-                final int defWarnLevel = res.getInteger(
-                        com.android.internal.R.integer.config_lowBatteryWarningLevel);
                 final int value = Settings.Global.getInt(getContentResolver(),
-                        Settings.Global.LOW_POWER_MODE_TRIGGER_LEVEL, defWarnLevel);
+                        Settings.Global.LOW_POWER_MODE_TRIGGER_LEVEL, 0);
 
                 int selectedIndex = -1;
                 final int[] intVals = res.getIntArray(R.array.battery_saver_trigger_values);
@@ -327,6 +340,24 @@ public class PowerUsageSummary extends PowerUsageBase
         Preference notAvailable = new Preference(getActivity());
         notAvailable.setTitle(R.string.power_usage_not_available);
         mAppListGroup.addPreference(notAvailable);
+    }
+
+    private void resetStats() {
+        AlertDialog dialog = new AlertDialog.Builder(getActivity())
+            .setTitle(R.string.battery_stats_reset)
+            .setMessage(R.string.battery_stats_message)
+            .setPositiveButton(R.string.ok_string, new OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    // Reset stats and request a refresh to initialize vars
+                    mStatsHelper.resetStatistics();
+                    refreshStats();
+                    mHandler.removeMessages(MSG_REFRESH_STATS);
+                }
+            })
+            .setNegativeButton(android.R.string.cancel, null)
+            .create();
+        dialog.show();
     }
 
     private void refreshBatterySaverOptions() {

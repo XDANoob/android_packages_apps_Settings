@@ -32,11 +32,14 @@
   <string-array name="screen_timeout_entries">
     <item msgid="3342301044271143016">"15 δευτερόλεπτα"</item>
     <item msgid="8881760709354815449">"30 δευτερόλεπτα"</item>
+    <item msgid="45SecondsScreenXXXX">"45 δευτερόλεπτα"</item>
     <item msgid="7589406073232279088">"1 λεπτό"</item>
     <item msgid="7001195990902244174">"2 λεπτά"</item>
     <item msgid="7489864775127957179">"5 λεπτά"</item>
     <item msgid="2314124409517439288">"10 λεπτά"</item>
     <item msgid="6864027152847611413">"30 λεπτά"</item>
+    <item msgid="60MinutesScreenXXXX">"60 λεπτά"</item>
+    <item msgid="120MinutesScreenXXX">"120 λεπτά"</item>
   </string-array>
   <string-array name="dream_timeout_entries">
     <item msgid="3149294732238283185">"Ποτέ"</item>
@@ -206,11 +209,11 @@
   </string-array>
   <string-array name="wifi_ip_settings">
     <item msgid="3906714200993111074">"DHCP"</item>
-    <item msgid="628395202971532382">"Στατικό"</item>
+    <item msgid="628395202971532382">"Στατική"</item>
   </string-array>
   <string-array name="wifi_proxy_settings">
-    <item msgid="4473276491748503377">"Κανένα"</item>
-    <item msgid="8673874894887358090">"Μη αυτόματες"</item>
+    <item msgid="4473276491748503377">"Κανένας"</item>
+    <item msgid="8673874894887358090">"Μη αυτόματος"</item>
     <item msgid="168893341855953140">"Αυτ. διαμ.διακομ.μεσολ."</item>
   </string-array>
   <string-array name="apn_auth_entries">

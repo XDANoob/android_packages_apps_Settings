@@ -29,6 +29,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.graphics.drawable.Drawable;
+import android.graphics.PorterDuff;
 import android.net.Uri;
 import android.os.BatteryStats;
 import android.os.Bundle;
@@ -86,9 +87,10 @@ public class PowerUsageDetail extends PowerUsageBase implements Button.OnClickLi
             SettingsActivity caller, BatteryStatsHelper helper, int statsType, BatteryEntry entry,
             boolean showLocationButton) {
         // Initialize mStats if necessary.
-        helper.getStats();
+        final BatteryStats stats = helper.getStats();
+        helper.getDockStats();
 
-        final int dischargeAmount = helper.getStats().getDischargeAmount(statsType);
+        final int dischargeAmount = stats.getDischargeAmount(statsType);
         Bundle args = new Bundle();
         args.putString(PowerUsageDetail.EXTRA_TITLE, entry.name);
         args.putInt(PowerUsageDetail.EXTRA_PERCENT, (int)
@@ -151,15 +153,13 @@ public class PowerUsageDetail extends PowerUsageBase implements Button.OnClickLi
                 if (entry.sipper.drainType == BatterySipper.DrainType.APP) {
                     Writer result = new StringWriter();
                     PrintWriter printWriter = new FastPrintWriter(result, false, 1024);
-                    helper.getStats().dumpLocked(caller, printWriter, "", helper.getStatsType(),
-                            uid.getUid());
+                    stats.dumpLocked(caller, printWriter, "", helper.getStatsType(), uid.getUid());
                     printWriter.flush();
                     args.putString(PowerUsageDetail.EXTRA_REPORT_DETAILS, result.toString());
 
                     result = new StringWriter();
                     printWriter = new FastPrintWriter(result, false, 1024);
-                    helper.getStats().dumpCheckinLocked(caller, printWriter, helper.getStatsType(),
-                            uid.getUid());
+                    stats.dumpCheckinLocked(caller, printWriter, helper.getStatsType(), uid.getUid());
                     printWriter.flush();
                     args.putString(PowerUsageDetail.EXTRA_REPORT_CHECKIN_DETAILS,
                             result.toString());
@@ -354,6 +354,7 @@ public class PowerUsageDetail extends PowerUsageBase implements Button.OnClickLi
         mControlsParent = (PreferenceCategory) findPreference(KEY_CONTROLS_PARENT);
         mMessagesParent = (PreferenceCategory) findPreference(KEY_MESSAGES_PARENT);
         mPackagesParent = (PreferenceCategory) findPreference(KEY_PACKAGES_PARENT);
+        hideRefreshButton(true);
 
         createDetails();
     }
@@ -479,13 +480,15 @@ public class PowerUsageDetail extends PowerUsageBase implements Button.OnClickLi
         if (appIcon == null) {
             appIcon = getActivity().getPackageManager().getDefaultActivityIcon();
         }
-
+        if (appIcon != null) {
+            appIcon.setTintMode(PorterDuff.Mode.SRC_ATOP);
+        }
         if (pkg == null && mPackages != null) {
             pkg = mPackages[0];
         }
         AppHeader.createAppHeader(this, appIcon, title,
                 pkg != null ? AppInfoWithHeader.getInfoIntent(this, pkg) : null,
-                mDrainType != DrainType.APP ? android.R.color.white : 0);
+                mDrainType != DrainType.APP ? R.color.power_usage_ab_icon_tint : 0);
     }
 
     public void onClick(View v) {

@@ -82,9 +82,7 @@
     <ListPreference
         android:key="root_access"
         android:title="@string/root_access"
-        android:persistent="false"
-        android:entries="@array/root_access_entries"
-        android:entryValues="@array/root_access_values" />
+        android:persistent="false" />
 
     <com.android.settings.cyanogenmod.SystemSettingSwitchPreference
         android:key="disable_fc_notifications"
@@ -101,10 +99,21 @@
     <Preference android:key="restart_systemui"
         android:title="@string/restart_systemui" />
 
+    <Preference
+        android:key="root_appops"
+        android:title="@string/root_appops_title"
+        android:summary="@string/root_appops_summary" />
+
     <com.android.settings.ColorModePreference
         android:key="color_mode"
         android:title="@string/picture_color_mode"
         android:summary="@string/picture_color_mode_desc"
+        android:persistent="false" />
+
+    <SwitchPreference
+        android:key="color_temperature"
+        android:title="@string/color_temperature"
+        android:summary="@string/color_temperature_desc"
         android:persistent="false" />
 
     <PreferenceCategory android:key="debug_debugging_category"
@@ -246,11 +255,11 @@
             android:title="@string/pointer_location"
             android:summary="@string/pointer_location_summary"/>
 
-        <com.android.settings.cyanogenmod.SystemSettingSwitchPreference
+        <com.android.settings.cyanogenmod.CMSystemSettingSwitchPreference
             android:key="edge_service_for_gestures"
             android:title="@string/edge_gesture_service_title"
             android:summary="@string/edge_gesture_service_summary"
-            android:defaultValue="1"/>
+            android:defaultValue="0"/>
 
     </PreferenceCategory>
 
@@ -272,26 +281,23 @@
             android:title="@string/force_rtl_layout_all_locales"
             android:summary="@string/force_rtl_layout_all_locales_summary"/>
 
-        <ListPreference
+        <com.android.settings.AnimationScalePreference
             android:key="window_animation_scale"
             android:title="@string/window_animation_scale_title"
-            android:persistent="false"
-            android:entries="@array/window_animation_scale_entries"
-            android:entryValues="@array/window_animation_scale_values" />
+            android:dialogTitle="@string/window_animation_scale_title"
+            android:persistent="false" />
 
-        <ListPreference
+        <com.android.settings.AnimationScalePreference
             android:key="transition_animation_scale"
             android:title="@string/transition_animation_scale_title"
-            android:persistent="false"
-            android:entries="@array/transition_animation_scale_entries"
-            android:entryValues="@array/transition_animation_scale_values" />
+            android:dialogTitle="@string/transition_animation_scale_title"
+            android:persistent="false" />
 
-        <ListPreference
+        <com.android.settings.AnimationScalePreference
             android:key="animator_duration_scale"
             android:title="@string/animator_duration_scale_title"
-            android:persistent="false"
-            android:entries="@array/animator_duration_scale_entries"
-            android:entryValues="@array/animator_duration_scale_values" />
+            android:dialogTitle="@string/animator_duration_scale_title"
+            android:persistent="false" />
 
         <ListPreference
             android:key="overlay_display_devices"
@@ -382,6 +388,11 @@
             android:title="@string/show_cpu_usage"
             android:summary="@string/show_cpu_usage_summary"/>
 
+        <SwitchPreference
+            android:key="show_cpu_info"
+            android:title="@string/show_cpu_info"
+            android:summary="@string/show_cpu_info_summary"/>
+
         <ListPreference
             android:key="track_frame_time"
             android:title="@string/track_frame_time"
@@ -405,6 +416,11 @@
             android:key="immediately_destroy_activities"
             android:title="@string/immediately_destroy_activities"
             android:summary="@string/immediately_destroy_activities_summary"/>
+
+        <SwitchPreference
+            android:key="allow_signature_fake"
+            android:title="@string/allow_signature_fake"
+            android:summary="@string/allow_signature_fake_summary"/>
 
         <ListPreference
             android:key="app_process_limit"
@@ -435,5 +451,17 @@
             android:dependency="kill_app_longpress_back" />
 
      </PreferenceCategory>
+
+    <!-- SELinux -->
+    <Preference
+        android:key="selinux_switch"
+        android:title="@string/selinux_switch_title"
+        android:summary="@string/selinux_switch_summary"
+        android:selectable="false"/>
+
+    <SwitchPreference
+        android:key="selinux"
+        android:title="@string/selinux_title"
+        android:defaultValue="false" />
 
 </PreferenceScreen>

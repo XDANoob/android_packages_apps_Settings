@@ -15,6 +15,7 @@
 -->
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+        android:title="@string/button_pref_title"
         xmlns:settings="http://schemas.android.com/apk/res/com.android.settings">
 
     <PreferenceCategory
@@ -130,20 +131,17 @@
 
     </PreferenceCategory>
 
+    <!-- Pie Control -->
+    <PreferenceScreen
+         android:key="pa_pie_control"
+         android:title="@string/pa_pie_control_title"
+         android:fragment="com.android.settings.temasek.PieControl" />
+
     <com.android.settings.cyanogenmod.ButtonBacklightBrightness
         android:key="button_backlight"
         android:title="@string/button_backlight_title"
         android:dialogTitle="@string/button_backlight_title"
         android:persistent="false" />
-
-    <!-- Device Specific Bluetooth Input settings -->
-    <Preference
-        android:key="bluetooth_input_settings">
-        <intent
-            android:action="com.cyanogenmod.action.LAUNCH_BLUETOOTH_INPUT_SETTINGS"
-            android:targetPackage="com.cyanogenmod.settings.device"
-            android:targetClass="com.cyanogenmod.settings.device.BluetoothInputSettings" />
-    </Preference>
 
     <PreferenceCategory
         android:key="power_key"
@@ -159,6 +157,12 @@
             android:title="@string/power_end_call_title"
             android:summary="@string/power_end_call_summary"
             android:persistent="false"/>
+
+        <SwitchPreference
+            android:key="camera_double_tap_power_gesture"
+            android:title="@string/camera_double_tap_power_gesture_title"
+            android:summary="@string/camera_double_tap_power_gesture_desc"
+            android:persistent="false" />
 
     </PreferenceCategory>
 
@@ -325,11 +329,12 @@
             android:summary="@string/volbtn_music_controls_summary"
             android:defaultValue="true" />
 
-        <com.android.settings.cyanogenmod.SecureSettingSwitchPreference
+        <com.android.settings.cyanogenmod.CMSystemSettingSwitchPreference
             android:key="volume_keys_control_ring_stream"
             android:title="@string/volume_keys_control_ring_stream_title"
             android:summaryOn="@string/volume_keys_control_ring_stream_summary_on"
-            android:summaryOff="@string/volume_keys_control_ring_stream_summary_off" />
+            android:summaryOff="@string/volume_keys_control_ring_stream_summary_off"
+            android:defaultValue="true" />
 
         <ListPreference
             android:key="volume_key_cursor_control"

@@ -35,13 +35,13 @@
     <string name="device_info_default">Unknown</string>
     <!-- [CHAR LIMIT=NONE] Device Info screen. Countdown for user taps to enable development settings -->
     <plurals name="show_dev_countdown">
-        <item quantity="one">You are now <xliff:g id="step_count">%1$d</xliff:g> step away from being a developer.</item>
-        <item quantity="other">You are now <xliff:g id="step_count">%1$d</xliff:g> steps away from being a developer.</item>
+        <item quantity="one">You are now <xliff:g id="step_count">%1$d</xliff:g> tap away from enabling Developer options.</item>
+        <item quantity="other">You are now <xliff:g id="step_count">%1$d</xliff:g> taps away from enabling Developer options.</item>
     </plurals>
     <!-- [CHAR LIMIT=NONE] Device Info screen. Confirmation that developer settings are enabled -->
-    <string name="show_dev_on">You are now a developer!</string>
+    <string name="show_dev_on">You have enabled Developer options!</string>
     <!-- [CHAR LIMIT=NONE] Device Info screen. Okay we get it, stop pressing, you already have it on -->
-    <string name="show_dev_already">No need, you are already a developer.</string>
+    <string name="show_dev_already">No need, you have already enabled Developer options.</string>
 
     <!-- Category headings in left-pane header menu --> <skip />
     <!-- Settings main menu category heading. Wireless and networks (Wi-Fi, Bluetooth, data usage...). [CHAR LIMIT=40] -->
@@ -2228,6 +2228,8 @@
     <string name="memory_size">Total space</string>
     <!-- SD card & phone storage settings summary. Displayed when the total memory usage is being calculated. Will be replaced with a number like "12.3 GB" when finished calucating. [CHAR LIMIT=30] -->
     <string name="memory_calculating_size">Calculating\u2026</string>
+    <!-- SD card & phone storage settings title. Displayed as a title when showing the total usage of Android system. Below it will be a number like "123.4 MB" indicating used storage. [CHAR LIMIT=50] -->
+    <string name="memory_android_system_usage">Android System</string>
     <!-- SD card & phone storage settings title. Displayed as a title when showing the total usage of applications installed. Below it will be a number like "123.4 MB" indicating used storage. [CHAR LIMIT=50] -->
     <string name="memory_apps_usage">Apps &amp; app data</string>
     <!-- SD card & phone storage settings title. Displayed as a title when showing the total usage of media on the device. Below it will be a number like "123.4 MB" indicating used storage. [CHAR LIMIT=50] -->
@@ -2422,6 +2424,11 @@
     <!-- Body of dialog confirming that user wants to forget an internal storage device [CHAR LIMIT=NONE]-->
     <string name="storage_internal_forget_confirm">All the apps, photos, and data stored on this <xliff:g id="name" example="SD card">^1</xliff:g> will be lost forever.</string>
 
+    <!-- Item title describing storage used by Android system [CHAR LIMIT=48] -->
+    <string name="storage_detail_android_system">Android System</string>
+    <!-- Toast message shown when storage item of Android system is clicked [CHAR LIMIT=NONE]-->
+    <string name="storage_detail_android_system_version">Android System <xliff:g id="version">%s</xliff:g></string>
+
     <!-- Item title describing storage used by apps [CHAR LIMIT=48]-->
     <string name="storage_detail_apps">Apps</string>
     <!-- Item title describing storage used by images [CHAR LIMIT=48]-->
@@ -2593,9 +2600,6 @@
     <string name="apn_protocol">APN protocol</string>
     <!-- Edit access point labels: The protocol of the APN when roaming, e.g., "IPv4", "IPv6", or "IPv4/IPv6". -->
     <string name="apn_roaming_protocol">APN roaming protocol</string>
-    <!-- Edit access point labels: PPP number -->
-    <string name="apn_ppp_number">APN PPP phone number</string>
-    <string name="ppp_number">ppp_number</string>
     <!-- Edit enable/disable of APN -->
     <string name="carrier_enabled">APN enable/disable</string>
     <string name="carrier_enabled_summaryOn">APN enabled</string>
@@ -2655,19 +2659,19 @@
     <!-- SD card & phone storage settings screen, setting option name under Internal phone storage heading -->
     <string name="master_clear_title">Factory data reset</string>
     <!-- SD card & phone storage settings screen, message on screen after user selects Factory data reset [CHAR LIMIT=NONE] -->
-    <string name="master_clear_desc" product="tablet">"This will erase all data from your tablet\u2019s <b>internal storage</b>, including:\n\n<li>Your Google account</li>\n<li>System and app data and settings</li>\n<li>Downloaded apps</li>"</string>
+    <string name="master_clear_desc" product="tablet">This will erase all data from your tablet\u2019s <b>internal storage</b>, including:\n\n<li>Your Google account</li>\n<li>System and app data and settings</li>\n<li>Downloaded apps</li></string>
     <!-- SD card & phone storage settings screen, message on screen after user selects Factory data reset [CHAR LIMIT=NONE] -->
-    <string name="master_clear_desc" product="default">"This will erase all data from your phone\u2019s <b>internal storage</b>, including:\n\n<li>Your Google account</li>\n<li>System and app data and settings</li>\n<li>Downloaded apps"</li></string>
+    <string name="master_clear_desc" product="default">This will erase all data from your phone\u2019s <b>internal storage</b>, including:\n\n<li>Your Google account</li>\n<li>System and app data and settings</li>\n<li>Downloaded apps</li></string>
     <!-- SD card & phone storage settings screen, instructions and list of current accounts.  The list of accounts follows this text[CHAR LIMIT=NONE] -->
-    <string name="master_clear_accounts" product="default">"\n\nYou are currently signed into the following accounts:\n"</string>
+    <string name="master_clear_accounts" product="default">\n\nYou are currently signed into the following accounts:\n</string>
     <!-- SD card & phone storage settings screen, notification if other users are present on the device [CHAR LIMIT=NONE] -->
-    <string name="master_clear_other_users_present" product="default">"\n\nThere are other users present on this device.\n"</string>
+    <string name="master_clear_other_users_present" product="default">\n\nThere are other users present on this device.\n</string>
     <!-- SD card & phone storage settings screen, list of items in user data storage (USB storage or SD card) that will be erased during this operation [CHAR LIMIT=NONE] -->
-    <string name="master_clear_desc_also_erases_external">"<li>Music</li>\n<li>Photos</li>\n<li>Other user data</li>"</string>
+    <string name="master_clear_desc_also_erases_external"><li>Music</li>\n<li>Photos</li>\n<li>Other user data</li></string>
     <!-- SD card & phone storage settings screen, instructions about whether to also erase the external storage (SD card) when erasing the internal storage [CHAR LIMIT=NONE] -->
-    <string name="master_clear_desc_erase_external_storage" product="nosdcard">"\n\nTo clear music, pictures, and other user data, the <b>USB storage</b> needs to be erased."</string>
+    <string name="master_clear_desc_erase_external_storage" product="nosdcard">\n\nTo clear music, pictures, and other user data, the <b>USB storage</b> needs to be erased.</string>
     <!-- SD card & phone storage settings screen, instructions about whether to also erase the external storage (SD card) when erasing the internal storage [CHAR LIMIT=NONE] -->
-    <string name="master_clear_desc_erase_external_storage" product="default">"\n\nTo clear music, pictures, and other user data, the <b>SD card</b> needs to be erased."</string>
+    <string name="master_clear_desc_erase_external_storage" product="default">\n\nTo clear music, pictures, and other user data, the <b>SD card</b> needs to be erased.</string>
     <!-- SD card & phone storage settings screen, label for check box to erase USB storage [CHAR LIMIT=30] -->
     <string name="erase_external_storage" product="nosdcard">Erase USB storage</string>
     <!-- SD card & phone storage settings screen, label for check box to erase SD card [CHAR LIMIT=30] -->
@@ -2693,13 +2697,14 @@
     <!-- Master clear progress screen title [CHAR LIMIT=30] -->
     <string name="master_clear_progress_title" >Erasing</string>
     <!-- Master clear progress screen text [CHAR LIMIT=75] -->
-    <string name="master_clear_progress_text">Please wait...</string>
+    <string name="master_clear_progress_text">Please wait\u2026</string>
 
     <!-- Main settings screen, Call settings title for item to go into the call settings -->
     <string name="call_settings_title">Call settings</string>
     <!-- Main settings screen, Call settings summary for item to go into call settings -->
     <string name="call_settings_summary">Set up voicemail, call forwarding, call waiting, caller ID</string>
 
+    <!-- TODO: Remove them once the same entries in SettingsLib is translated. -->
     <!-- Tethering controls, item title to go into the tethering settings -->
     <!-- Tethering controls, item title to go into the tethering settings when only USB tethering is available [CHAR LIMIT=25]-->
     <string name="tether_settings_title_usb">USB tethering</string>
@@ -2763,7 +2768,7 @@
     <string name="network_settings_title">Cellular networks</string>
 
     <!-- Mobile plan [CHAR LIMIT=35]-->
-    <string name="manage_mobile_plan_title" translatable="true">Mobile plan</string>
+    <string name="manage_mobile_plan_title" translatable="true">Cellular plan</string>
 
     <!-- SMS Application [CHAR LIMIT=35]-->
     <string name="sms_application_title" translatable="true">SMS app</string>
@@ -3122,6 +3127,7 @@
     <string name="ask_compatibility">Ask when launched</string>
     <!-- Manage applications, individual application screen, checkbox to control compatibility mode.  -->
     <string name="enable_compatibility">Scale app</string>
+    <!-- TODO: Remove it once the same entry in SettingsLib is translated. -->
     <!-- Manage apps, individual app screen, substituted for the application's label when the app's label CAN NOT be determined.-->
     <string name="unknown">Unknown</string>
     <!-- [CHAR LIMIT=25] Manage applications screen, menu item.  Sorts all of the apps in the list alphabetically. -->
@@ -3332,6 +3338,7 @@
     <string name="memory">RAM</string>
     <!-- Text to label a process entry with the process name. -->
     <string name="service_process_name"><xliff:g id="process">%1$s</xliff:g></string>
+    <!-- TODO: Remove it once the same entry in SettingsLib is translated. -->
     <!-- [CHAR LIMIT=NONE] Label of a running process that represents another user -->
     <string name="running_process_item_user_label">User: <xliff:g id="user_name">%1$s</xliff:g></string>
     <!-- [CHAR LIMIT=NONE] Label of a running process that represents a removed -->
@@ -3671,7 +3678,7 @@
     <!-- Title of warning dialog about the implications of enabling USB debugging -->
     <!-- Setting Checkbox summary whether to use DHCP client from Lollipop (Android 5.0) [CHAR LIMIT=130] -->
     <string name="legacy_dhcp_client_summary">Use the DHCP client from Lollipop instead of the new Android DHCP client.</string>
-    <string name="mobile_data_always_on_summary">Always keep mobile data active, even when Wi\u2011Fi is active (for fast network switching).</string>
+    <string name="mobile_data_always_on_summary">Always keep cellular data active, even when Wi\u2011Fi is active (for fast network switching).</string>
     <string name="adb_warning_title">Allow USB debugging?</string>
     <!-- Warning text to user about the implications of enabling USB debugging -->
     <string name="adb_warning_message">USB debugging is intended for development purposes only. Use it to copy data between your computer and your device, install apps on your device without notification, and read log data.</string>
@@ -4169,11 +4176,11 @@
     <!-- Label for Phone usage time -->
     <string name="usage_type_phone" product="default">Phone</string>
     <!-- Label for mobile network data sent [CHAR LIMIT=32] -->
-    <string name="usage_type_data_send">Mobile packets sent</string>
+    <string name="usage_type_data_send">Cellular packets sent</string>
     <!-- Label for mobile network data received [CHAR LIMIT=32] -->
-    <string name="usage_type_data_recv">Mobile packets received</string>
+    <string name="usage_type_data_recv">Cellular packets received</string>
     <!-- Label for mobile network radio active time [CHAR LIMIT=32] -->
-    <string name="usage_type_radio_active">Mobile radio active</string>
+    <string name="usage_type_radio_active">Cellular radio active</string>
     <!-- Label for Wi-Fi network data sent [CHAR LIMIT=32] -->
     <string name="usage_type_data_wifi_send">Wi\u2011Fi packets sent</string>
     <!-- Label for Wi-Fi network data received [CHAR LIMIT=32] -->
@@ -4279,6 +4286,7 @@
     <!-- Menu label for refreshing with latest usage numbers -->
     <string name="menu_stats_refresh">Refresh</string>
 
+    <!-- TODO: Remove it once the same entry in SettingsLib is translated. -->
     <!-- Label for kernel threads in battery usage -->
     <string name="process_kernel_label">Android OS</string>
     <!-- Label for mediaserver process in battery usage -->
@@ -4503,7 +4511,7 @@
     <string name="tts_status_not_supported"><xliff:g id="locale" example="English (United States)">%1$s</xliff:g> is not supported</string>
     <!-- On main TTS Settings screen, current TTS engine status for the current default language,
          tts engine is queried for status [CHAR LIMIT=150] -->
-    <string name="tts_status_checking">Checking...</string>
+    <string name="tts_status_checking">Checking\u2026</string>
     <!-- On main TTS Settings screen, text for divider under which all TTS engines are listed -->
     <string name="tts_engines_section">Engines</string>
     <!-- On main TTS Settings screen, text preceded by the TTS engine name, clicking this button will launch the engine settings -->
@@ -5303,8 +5311,10 @@
     <!-- Label displaying current network data usage limit threshold. [CHAR LIMIT=18] -->
     <string name="data_usage_sweep_limit"><font size="21"><xliff:g id="number" example="128">^1</xliff:g></font> <font size="9"><xliff:g id="unit" example="KB">^2</xliff:g></font>\n<font size="12">limit</font></string>
 
+    <!-- TODO: Remove it once the same entry in SettingsLib is translated. -->
     <!-- Title of data usage item that represents all uninstalled applications. [CHAR LIMIT=48] -->
     <string name="data_usage_uninstalled_apps">Removed apps</string>
+    <!-- TODO: Remove it once the same entry in SettingsLib is translated. -->
     <!-- Title of data usage item that represents all uninstalled applications or removed users. [CHAR LIMIT=48] -->
     <string name="data_usage_uninstalled_apps_users">Removed apps and users</string>
     <!-- Combination of total network bytes sent and received by an application. [CHAR LIMIT=NONE] -->
@@ -5575,6 +5585,7 @@
     <string name="user_delete_user_description">Delete user</string>
     <!-- Delete button text [CHAR LIMIT=25] -->
     <string name="user_delete_button">Delete</string>
+    <!-- TODO: Remove it once the same entry in SettingsLib is translated. -->
     <!-- Title for Guest user [CHAR LIMIT=35] -->
     <string name="user_guest">Guest</string>
     <!-- Label for item to exit guest mode [CHAR LIMIT=35] -->
@@ -5649,7 +5660,7 @@
     <!-- Button the user can click to indicate he understood and dismiss the screen -->
     <string name="nfc_how_it_works_got_it">Got it</string>
     <!-- NFC More... title.  [CHAR LIMIT=40] -->
-    <string name="nfc_more_title">More...</string>
+    <string name="nfc_more_title">More\u2026</string>
     <!-- Label for the dialog that is shown when the user is asked to set a
          preferred payment application -->
     <string name="nfc_payment_set_default_label">Set as your preference?</string>
@@ -5795,9 +5806,9 @@
     <string name="app_sees_restricted_accounts_and_controlled_by">This app can access your accounts. Controlled by <xliff:g id="app">%1$s</xliff:g></string>
 
     <!-- Restrictions title for configuring wifi and mobile [CHAR LIMIT=35] -->
-    <string name="restriction_wifi_config_title">Wi\u2011Fi and Mobile</string>
+    <string name="restriction_wifi_config_title">Wi\u2011Fi and Cellular</string>
     <!-- Restrictions summary for configuring wifi and mobile [CHAR LIMIT=100] -->
-    <string name="restriction_wifi_config_summary">Allow modification of Wi\u2011Fi and Mobile settings</string>
+    <string name="restriction_wifi_config_summary">Allow modification of Wi\u2011Fi and Cellular settings</string>
     <!-- Restrictions title for changing bluetooth configuration [CHAR LIMIT=35] -->
     <string name="restriction_bluetooth_config_title">Bluetooth</string>
     <!-- Restrictions summary for changing bluetooth configuration [CHAR LIMIT=100] -->
@@ -5851,7 +5862,7 @@
     <!-- Message for selecting sim for data in settings.  [CHAR LIMIT=40] -->
     <string name="select_sim_for_data">Select a SIM for data</string>
     <!-- Message for switching data SIM; switching takes a while -->
-    <string name="data_switch_started">Switching data SIM, this may take up to a minute...</string>
+    <string name="data_switch_started">Switching data SIM, this may take up to a minute\u2026</string>
     <!-- Message for selecting sim for call in settings.  [CHAR LIMIT=40] -->
     <string name="select_sim_for_calls">Call with</string>
     <!-- Title for selecting a SIM card.  [CHAR LIMIT=40] -->
@@ -5907,8 +5918,6 @@
     <string name="sim_pref_divider">Preferred SIM for</string>
     <!-- When a user chooses this "Ask first" preference for the SIM to use for phone calls, they'll be prompted to choose a SIM every time they initiate a call [CHAR LIMIT=50] -->
     <string name="sim_calls_ask_first_prefs_title">Ask every time</string>
-    <!-- When a user chooses this "Ask first" preference for the SIM to use for send SMS, they'll be prompted to choose a SIM every time they initiate a SMS [CHAR LIMIT=50] -->
-    <string name="sim_sms_ask_first_prefs_title">Ask every time</string>
     <!-- When a SIM preference hasn't been selected yet, this string is displayed as the pref summary until the user chooses a SIM subscription from the preference list [CHAR LIMIT=50] -->
     <string name="sim_selection_required_pref">Selection required</string>
 
@@ -5942,7 +5951,7 @@
     <string name="keywords_display_night_mode">dark theme night mode dim screen invert brightness</string>
     <string name="keywords_display_wallpaper">background personalize customize display</string>
     <string name="keywords_display_font_size">text size</string>
-    <string name="keywords_display_cast_screen">project cast</string>
+    <string name="keywords_display_cast_screen">project</string>
     <string name="keywords_storage">space disk hard drive device usage</string>
     <string name="keywords_battery">power usage charge</string>
     <string name="keywords_spell_checker">spelling dictionary spellcheck auto-correct</string>
@@ -5968,6 +5977,7 @@
     <string name="keywords_default_apps">apps default</string>
     <string name="keywords_ignore_optimizations">ignore optimizations doze app standby</string>
     <string name="keywords_color_mode">vibrant rgb srgb color natural standard</string>
+    <string name="keywords_color_temperature">color temperature D65 D73 white yellow blue warm cool</string>
     <!-- Search keywords for different screen unlock modes : slide to unlock, password, pattern and PIN [CHAR LIMIT=none] -->
     <string name="keywords_lockscreen">slide password pattern pin</string>
 
@@ -5978,7 +5988,7 @@
     <!-- Text for button to confirm writing tag -->
     <string name="write_tag">Write</string>
     <!-- Text to inform the user to tap a tag to complete the setup process -->
-    <string name="status_awaiting_tap">Tap a tag to write...</string>
+    <string name="status_awaiting_tap">Tap a tag to write\u2026</string>
     <!-- Text to inform the user that the network key entered was incorrect -->
     <string name="status_invalid_password">Invalid password, try again.</string>
     <!-- Text displayed when tag successfully writen -->
@@ -6148,7 +6158,7 @@
     <string name="zen_access_empty_text">No installed apps have requested Do Not Disturb access</string>
 
     <!-- [CHAR LIMIT=NONE] Text when loading app list in notification settings -->
-    <string name="loading_notification_apps">Loading apps...</string>
+    <string name="loading_notification_apps">Loading apps\u2026</string>
 
     <!-- [CHAR LIMIT=NONE] App notification settings: Block option title -->
     <string name="app_notification_block_title">Block all</string>
@@ -6394,6 +6404,7 @@
     <!-- [CHAR LIMIT=60] Unlock setting for screen pinning -->
     <string name="screen_pinning_unlock_none">Lock device when unpinning</string>
 
+    <!-- TODO: Remove it once the same entry in SettingsLib is translated. -->
     <!-- Title for a work profile. [CHAR LIMIT=25] -->
     <string name="managed_user_title">Work profile</string>
     <!-- Opening string on the dialog that prompts the user to confirm that they really want to delete their existing work profile. The administration app icon and name appear after the final colon. [CHAR LIMIT=NONE] -->
@@ -7010,27 +7021,6 @@
     <!-- Summary of app not allowed to write system settings [CHAR LIMIT=45] -->
     <string name="write_settings_off">No</string>
 
-    <string name="sim_enabler_summary">" is %1$s"</string>
-    <string name="sim_enabled">enabled</string>
-    <string name="sim_disabled">disabled</string>
-    <string name="sim_missing">missing or error</string>
-    <string name="sim_enabler_need_enable_sim">Activating the SIM, are you sure?</string>
-    <string name="sim_enabler_need_disable_sim">Deactivating the SIM, are you sure?</string>
-    <string name="sim_enabler_will_disable_sim_title">Attention</string>
-    <string name="sim_enabler_need_switch_data_service">Will disable it and switch to SIM<xliff:g id="slotid">%1$s</xliff:g> for data services, are you sure?</string>
-    <string name="sim_enabler_airplane_on">ERROR, airplane mode is on!</string>
-    <string name="sim_enabler_in_call">ERROR, in call!</string>
-    <string name="sim_enabler_both_inactive">"Error, can't disable all the SIMs"</string>
-    <string name="sim_enabler_enabling">Activating...</string>
-    <string name="sim_enabler_disabling">Deactivating...</string>
-    <string name="sub_activate_success">Successfully Activated.</string>
-    <string name="sub_activate_failed">Activation failed.</string>
-    <string name="sub_deactivate_success">Successfully Deactivated.</string>
-    <string name="sub_deactivate_failed">Deactivation failed.</string>
-
-    <string name="primary_sub_select_title">Default 4G/3G Subscription</string>
-    <string name="select_sim_card">Select SIM card</string>
-
     <!-- Title of setting that controls gesture to open camera [CHAR LIMIT=40] -->
     <string name="camera_gesture_title">Double twist for camera</string>
 
@@ -7063,10 +7053,12 @@
     <!-- Description of feature to change color setting for the display [CHAR LIMIT=NONE] -->
     <string name="picture_color_mode_desc">Use sRGB</string>
 
-    <!-- Protected Apps -->
-    <string name="menu_hidden_apps_delete">Reset</string>
-    <string name="menu_hidden_apps_reset_lock">Reset pattern lock</string>
-    <string name="protected_apps">Protected apps</string>
-    <string name="saving_protected_components">Saving component state</string>
+    <!-- Name of the setting to change the display's color temperature -->
+    <string name="color_temperature">Cool color temperature</string>
 
+    <!-- Description of the setting to change the display's color temperature -->
+    <string name="color_temperature_desc">Use cooler display colors</string>
+
+    <!-- Toast message letting the user know the color temperature setting is not immediate -->
+    <string name="color_temperature_toast">To apply color change, turn off screen</string>
 </resources>

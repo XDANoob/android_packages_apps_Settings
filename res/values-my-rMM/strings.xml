@@ -2512,6 +2512,7 @@
     <string name="keywords_default_apps" msgid="3581727483175522599">"apps များ ပုံမှန်"</string>
     <string name="keywords_ignore_optimizations" msgid="946516741848647905">"Doze app အရံသင့်ထားခြင်းအား လျစ်လျူရှုရန်"</string>
     <string name="keywords_color_mode" msgid="4670570451841540200">"တက်ကြွသည့် rgb srgb အရောင်စံသဘာဝ"</string>
+    <string name="keywords_color_temperature" msgid="2688947724153266364">"အရောင် အပူချိန်မှာ D65 D73 အဖြူ အဝါ အပြာ နွေး အေး"</string>
     <string name="keywords_lockscreen" msgid="4806191868723291541">"စကားဝှက် ပုံစံ ပင်ကို ရွှေ့ရန်"</string>
     <string name="setup_wifi_nfc_tag" msgid="9028353016222911016">"ကြိုးမဲ့ NFC တဲဂ်ကို စဖွင့်သတ်မှတ်ရန်"</string>
     <string name="write_tag" msgid="8571858602896222537">"ရေးရန်"</string>
@@ -2840,7 +2841,7 @@
     <string name="memory_performance" msgid="5661005192284103281">"ဖျော်ဖြေတင်ဆက်မှု"</string>
     <string name="total_memory" msgid="2017287600738630165">"စုစုပေါင်း မှတ်ဉာဏ်"</string>
     <string name="average_used" msgid="5338339266517245782">"ပျမ်းမျှ အသုံးပြုမှု (%)"</string>
-    <string name="free_memory" msgid="4003936141603549746">"အလွတ်"</string>
+    <string name="free_memory" msgid="4003936141603549746">"လက်ကျန်"</string>
     <string name="memory_usage_apps" msgid="5650192998273294098">"App များမှ အသုံးပြုသော မှတ်ဉာဏ်"</string>
     <plurals name="memory_usage_apps_summary" formatted="false" msgid="6089210945574265774">
       <item quantity="other"> App <xliff:g id="COUNT">%1$d</xliff:g> သည် မှတ်ဉာဏ်အား လွန်ခဲ့သော <xliff:g id="DURATION_1">%2$s</xliff:g> က သုံးခဲ့၏</item>
@@ -2900,4 +2901,7 @@
   </string-array>
     <string name="picture_color_mode" msgid="4560755008730283695">"ဓာတ်ပုံအရောင်မုဒ်"</string>
     <string name="picture_color_mode_desc" msgid="1141891467675548590">"sRGB ကို အသုံးပြုပါ"</string>
+    <string name="color_temperature" msgid="2070126836910615605">"အေးသည့် အရောင်အပူချိန်"</string>
+    <string name="color_temperature_desc" msgid="4793729830226404052">"ပိုအေးသည့် မျက်နှာပြင် အရောင်များကိုအသုံးပြုရန်"</string>
+    <string name="color_temperature_toast" msgid="4974218172133854827">"အရောင်ပြောင်းလဲမှု ပြုလုပ်ရန်၊ မျက်နှာပြင်ကိုပိတ်ပါ"</string>
 </resources>

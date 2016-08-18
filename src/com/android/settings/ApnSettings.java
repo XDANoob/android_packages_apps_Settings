@@ -72,8 +72,12 @@ public class ApnSettings extends SettingsPreferenceFragment implements
     public static final String PREFERRED_APN_URI =
         "content://telephony/carriers/preferapn";
 
+    public static final Uri PREFERRED_MSIM_APN_URI =
+            Uri.parse("content://telephony/carriers/preferapn/subIdImsi");
+
     public static final String APN_ID = "apn_id";
     public static final String SUB_ID = "sub_id";
+    public static final String EXTRA_IMSI = "imsi";
     public static final String MVNO_TYPE = "mvno_type";
     public static final String MVNO_MATCH_DATA = "mvno_match_data";
 
@@ -115,6 +119,9 @@ public class ApnSettings extends SettingsPreferenceFragment implements
     private boolean mUnavailable;
 
     private boolean mHideImsApn;
+    private boolean mAllowAddingApns;
+
+    private String mImsi;
 
     private final BroadcastReceiver mMobileStateReceiver = new BroadcastReceiver() {
         @Override
@@ -156,6 +163,8 @@ public class ApnSettings extends SettingsPreferenceFragment implements
         final int subId = activity.getIntent().getIntExtra(SUB_ID,
                 SubscriptionManager.INVALID_SUBSCRIPTION_ID);
 
+        mImsi = activity.getIntent().getStringExtra(EXTRA_IMSI);
+
         mUm = (UserManager) getSystemService(Context.USER_SERVICE);
 
         mMobileStateFilter = new IntentFilter(
@@ -172,6 +181,7 @@ public class ApnSettings extends SettingsPreferenceFragment implements
                 getSystemService(Context.CARRIER_CONFIG_SERVICE);
         PersistableBundle b = configManager.getConfig();
         mHideImsApn = b.getBoolean(CarrierConfigManager.KEY_HIDE_IMS_APN_BOOL);
+        mAllowAddingApns = b.getBoolean(CarrierConfigManager.KEY_ALLOW_ADDING_APNS_BOOL);
     }
 
     @Override
@@ -237,15 +247,15 @@ public class ApnSettings extends SettingsPreferenceFragment implements
         final String mccmnc = mSubscriptionInfo == null ? ""
             : tm.getIccOperatorNumericForData(mSubscriptionInfo.getSubscriptionId());
         Log.d(TAG, "mccmnc = " + mccmnc);
-        String where = "numeric=\""
-            + mccmnc
-            + "\" AND NOT (type='ia' AND (apn=\"\" OR apn IS NULL))";
+        StringBuilder where = new StringBuilder("numeric=\"" + mccmnc +
+                "\" AND NOT (type='ia' AND (apn=\"\" OR apn IS NULL)) AND user_visible!=0");
+
         if (mHideImsApn) {
-            where = where + " AND NOT (type='ims')";
+            where.append(" AND NOT (type='ims')");
         }
 
         Cursor cursor = getContentResolver().query(Telephony.Carriers.CONTENT_URI, new String[] {
-                "_id", "name", "apn", "type", "mvno_type", "mvno_match_data", "read_only"}, where,
+                "_id", "name", "apn", "type", "mvno_type", "mvno_match_data", "read_only"}, where.toString(),
                 null, Telephony.Carriers.DEFAULT_SORT_ORDER);
 
         if (cursor != null) {
@@ -341,16 +351,31 @@ public class ApnSettings extends SettingsPreferenceFragment implements
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         if (!mUnavailable) {
-            menu.add(0, MENU_NEW, 0,
-                    getResources().getString(R.string.menu_new))
-                    .setIcon(R.drawable.ic_menu_add_white)
-                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+            if (mAllowAddingApns) {
+                menu.add(0, MENU_NEW, 0,
+                        getResources().getString(R.string.menu_new))
+                        .setIcon(R.drawable.ic_menu_add_white)
+                        .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+            }
             menu.add(0, MENU_RESTORE, 0,
                     getResources().getString(R.string.menu_restore))
                     .setIcon(android.R.drawable.ic_menu_upload);
         }
 
         super.onCreateOptionsMenu(menu, inflater);
+    }
+
+    @Override
+    public void onPrepareOptionsMenu(Menu menu) {
+        MenuItem item = null;
+        item = menu.findItem(MENU_NEW);
+        if (item != null) {
+            item.setEnabled(!mRestoreDefaultApnMode);
+        }
+        item = menu.findItem(MENU_RESTORE);
+        if (item != null) {
+            item.setEnabled(!mRestoreDefaultApnMode);
+        }
     }
 
     @Override
@@ -404,25 +429,41 @@ public class ApnSettings extends SettingsPreferenceFragment implements
 
         ContentValues values = new ContentValues();
         values.put(APN_ID, mSelectedKey);
-        resolver.update(PREFERAPN_URI, values, null, null);
+        if (TelephonyManager.getDefault().getPhoneCount() > 1 && mImsi != null) {
+            Uri qUri = Uri.withAppendedPath(PREFERRED_MSIM_APN_URI,
+                    String.valueOf(mSubscriptionInfo.getSubscriptionId()));
+            qUri = Uri.withAppendedPath(qUri, mImsi);
+            resolver.update(qUri, values, null, null);
+        } else {
+            resolver.update(PREFERAPN_URI, values, null, null);
+        }
     }
 
     private String getSelectedApnKey() {
         String key = null;
 
-        Cursor cursor = getContentResolver().query(PREFERAPN_URI, new String[] {"_id"},
-                null, null, Telephony.Carriers.DEFAULT_SORT_ORDER);
-        if (cursor.getCount() > 0) {
-            cursor.moveToFirst();
-            key = cursor.getString(ID_INDEX);
+        Uri uri;
+        if (TelephonyManager.getDefault().getPhoneCount() > 1 && mImsi != null)  {
+            uri = Uri.withAppendedPath(PREFERRED_MSIM_APN_URI,
+                    String.valueOf(mSubscriptionInfo.getSubscriptionId()));
+            uri = Uri.withAppendedPath(uri, mImsi);
+        } else {
+            uri = PREFERAPN_URI;
         }
-        cursor.close();
+        try (Cursor cursor = getContentResolver().query(uri, new String[] {"_id"},
+                null, null, Telephony.Carriers.DEFAULT_SORT_ORDER)) {
+            if (cursor != null && cursor.getCount() > 0) {
+                cursor.moveToFirst();
+                key = cursor.getString(ID_INDEX);
+            }
+        }
         return key;
     }
 
     private boolean restoreDefaultApn() {
         showDialog(DIALOG_RESTORE_DEFAULTAPN);
         mRestoreDefaultApnMode = true;
+        getPreferenceScreen().setEnabled(false);
 
         if (mRestoreApnUiHandler == null) {
             mRestoreApnUiHandler = new RestoreApnUiHandler();
@@ -461,6 +502,7 @@ public class ApnSettings extends SettingsPreferenceFragment implements
                         getResources().getString(
                                 R.string.restore_default_apn_completed),
                         Toast.LENGTH_LONG).show();
+                    getActivity().invalidateOptionsMenu();
                     break;
             }
         }

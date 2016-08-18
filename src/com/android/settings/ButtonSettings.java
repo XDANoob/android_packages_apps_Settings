@@ -44,8 +44,6 @@ import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.WindowManagerGlobal;
 
-import com.android.internal.logging.MetricsLogger;
-
 import com.android.settings.cyanogenmod.ButtonBacklightBrightness;
 import com.android.settings.R;
 import com.android.settings.search.BaseSearchIndexProvider;
@@ -56,6 +54,7 @@ import com.android.settings.Utils;
 import cyanogenmod.hardware.CMHardwareManager;
 import cyanogenmod.providers.CMSettings;
 
+import org.cyanogenmod.internal.logging.CMMetricsLogger;
 import org.cyanogenmod.internal.util.ScreenType;
 
 import java.util.List;
@@ -63,6 +62,8 @@ import java.util.List;
 import com.android.internal.util.temasek.TemasekUtils;
 
 import net.margaritov.preference.colorpicker.ColorPickerPreference;
+
+import static android.provider.Settings.Secure.CAMERA_DOUBLE_TAP_POWER_GESTURE_DISABLED;
 
 public class ButtonSettings extends SettingsPreferenceFragment implements
         Preference.OnPreferenceChangeListener {
@@ -86,9 +87,10 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
     private static final String NAVIGATION_BAR_TINT = "navigation_bar_tint";
     private static final String KEY_POWER_END_CALL = "power_end_call";
     private static final String KEY_HOME_ANSWER_CALL = "home_answer_call";
-    private static final String KEY_BLUETOOTH_INPUT_SETTINGS = "bluetooth_input_settings";
     private static final String KEY_VOLUME_MUSIC_CONTROLS = "volbtn_music_controls";
     private static final String KEY_VOLUME_CONTROL_RING_STREAM = "volume_keys_control_ring_stream";
+    private static final String KEY_CAMERA_DOUBLE_TAP_POWER_GESTURE
+            = "camera_double_tap_power_gesture";
 
     private static final String CATEGORY_POWER = "power_key";
     private static final String CATEGORY_HOME = "home_key";
@@ -146,7 +148,6 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
     private ListPreference mVolumeKeyCursorControl;
     private SwitchPreference mVolumeWakeScreen;
     private SwitchPreference mVolumeMusicControls;
-    private SwitchPreference mVolumeControlRingStream;
     private SwitchPreference mSwapVolumeButtons;
     private SwitchPreference mNavigationBarLeftPref;
     private ListPreference mNavigationRecentsLongPressAction;
@@ -155,6 +156,7 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
     private SwitchPreference mEnableNavigationBar;
     private SwitchPreference mEnableHwKeys;
     private ColorPickerPreference mNavbarButtonTint;
+    private SwitchPreference mCameraDoubleTapPowerGesture;
 
     SwitchPreference mDimNavButtons;
     SwitchPreference mDimNavButtonsTouchAnywhere;
@@ -218,6 +220,10 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
         // Power button ends calls.
         mPowerEndCall = (SwitchPreference) findPreference(KEY_POWER_END_CALL);
 
+        // Double press power to launch camera.
+        mCameraDoubleTapPowerGesture
+                    = (SwitchPreference) findPreference(KEY_CAMERA_DOUBLE_TAP_POWER_GESTURE);
+
         // Home button answers calls.
         mHomeAnswerCall = (SwitchPreference) findPreference(KEY_HOME_ANSWER_CALL);
 
@@ -272,6 +278,17 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
             if (!Utils.isVoiceCapable(getActivity())) {
                 powerCategory.removePreference(mPowerEndCall);
                 mPowerEndCall = null;
+            }
+            if (mCameraDoubleTapPowerGesture != null &&
+                    isCameraDoubleTapPowerGestureAvailable(getResources())) {
+                // Update double tap power to launch camera if available.
+                mCameraDoubleTapPowerGesture.setOnPreferenceChangeListener(this);
+                int cameraDoubleTapPowerDisabled = Settings.Secure.getInt(
+                        getContentResolver(), CAMERA_DOUBLE_TAP_POWER_GESTURE_DISABLED, 0);
+                mCameraDoubleTapPowerGesture.setChecked(cameraDoubleTapPowerDisabled == 0);
+            } else {
+                powerCategory.removePreference(mCameraDoubleTapPowerGesture);
+                mCameraDoubleTapPowerGesture = null;
             }
         } else {
             prefScreen.removePreference(powerCategory);
@@ -412,7 +429,9 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
                     CMSettings.System.SWAP_VOLUME_KEYS_ON_ROTATION, 0);
             mSwapVolumeButtons = (SwitchPreference)
                     prefScreen.findPreference(KEY_SWAP_VOLUME_BUTTONS);
-            mSwapVolumeButtons.setChecked(swapVolumeKeys > 0);
+            if (mSwapVolumeButtons != null) {
+                mSwapVolumeButtons.setChecked(swapVolumeKeys > 0);
+            }
         } else {
             prefScreen.removePreference(volumeCategory);
         }
@@ -423,9 +442,6 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
             prefScreen.removePreference(backlight);
         }
 
-        Utils.updatePreferenceToSpecificActivityFromMetaDataOrRemove(getActivity(),
-                getPreferenceScreen(), KEY_BLUETOOTH_INPUT_SETTINGS);
-
         if (mCameraWakeScreen != null) {
             if (mCameraSleepOnRelease != null && !getResources().getBoolean(
                     com.android.internal.R.bool.config_singleStageCameraKey)) {
@@ -434,14 +450,6 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
         }
         mVolumeWakeScreen = (SwitchPreference) findPreference(CMSettings.System.VOLUME_WAKE_SCREEN);
         mVolumeMusicControls = (SwitchPreference) findPreference(KEY_VOLUME_MUSIC_CONTROLS);
-
-        mVolumeControlRingStream = (SwitchPreference)
-                findPreference(KEY_VOLUME_CONTROL_RING_STREAM);
-        int volumeControlRingtone = CMSettings.System.getInt(getContentResolver(),
-                CMSettings.System.VOLUME_KEYS_CONTROL_RING_STREAM, 1);
-        if (mVolumeControlRingStream != null) {
-            mVolumeControlRingStream.setChecked(volumeControlRingtone > 0);
-        }
 
         if (mVolumeWakeScreen != null) {
             if (mVolumeMusicControls != null) {
@@ -490,7 +498,7 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
 
         // Power button ends calls.
         if (mPowerEndCall != null) {
-            final int incallPowerBehavior = CMSettings.Secure.getInt(getContentResolver(),
+            final int incallPowerBehavior = Settings.Secure.getInt(getContentResolver(),
                     Settings.Secure.INCALL_POWER_BUTTON_BEHAVIOR,
                     Settings.Secure.INCALL_POWER_BUTTON_BEHAVIOR_DEFAULT);
             final boolean powerButtonEndsCall =
@@ -507,11 +515,11 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
                 (incallHomeBehavior == CMSettings.Secure.RING_HOME_BUTTON_BEHAVIOR_ANSWER);
             mHomeAnswerCall.setChecked(homeButtonAnswersCall);
         }
-
     }
 
     private ListPreference initActionList(String key, int value) {
         ListPreference list = (ListPreference) getPreferenceScreen().findPreference(key);
+        if (list == null) return null;
         list.setValue(Integer.toString(value));
         list.setSummary(list.getEntry());
         list.setOnPreferenceChangeListener(this);
@@ -599,7 +607,7 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
 
     @Override
     protected int getMetricsCategory() {
-        return MetricsLogger.DONT_TRACK_ME_BRO;
+        return CMMetricsLogger.BUTTON_SETTINGS;
     }
 
    private void updateNavBarSettings() {
@@ -755,6 +763,11 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
                 Settings.System.DIM_NAV_BUTTONS_ANIMATE_DURATION,
                 Integer.parseInt((String) newValue));
             return true;
+        } else if (preference == mCameraDoubleTapPowerGesture) {
+            boolean value = (Boolean) newValue;
+            Settings.Secure.putInt(getContentResolver(), CAMERA_DOUBLE_TAP_POWER_GESTURE_DISABLED,
+                    value ? 0 : 1 /* Backwards because setting is for disabling */);
+            return true;
         }
         return false;
     }
@@ -766,10 +779,6 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
                     ? (ScreenType.isTablet(getActivity()) ? 2 : 1) : 0;
             CMSettings.System.putInt(getActivity().getContentResolver(),
                     CMSettings.System.SWAP_VOLUME_KEYS_ON_ROTATION, value);
-        } else if (preference == mVolumeControlRingStream) {
-            int value = mVolumeControlRingStream.isChecked() ? 1 : 0;
-            CMSettings.System.putInt(getActivity().getContentResolver(),
-                    CMSettings.System.VOLUME_KEYS_CONTROL_RING_STREAM, value);
         } else if (preference == mPowerEndCall) {
             handleTogglePowerButtonEndsCallPreferenceClick();
             return true;
@@ -782,26 +791,8 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
     }
 
     private static void writeDisableHwKeysOption(Context context, boolean enabled) {
-        final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        final int defaultBrightness = context.getResources().getInteger(
-                com.android.internal.R.integer.config_buttonBrightnessSettingDefault);
-
         Settings.System.putInt(context.getContentResolver(),
                 Settings.System.ENABLE_HW_KEYS, enabled ? 1 : 0);
-
-        CMHardwareManager hardware = CMHardwareManager.getInstance(context);
-        hardware.set(CMHardwareManager.FEATURE_KEY_DISABLE, !enabled);
-
-        /* Save/restore button timeouts to disable them in softkey mode */
-        if (!enabled) {
-            CMSettings.Secure.putInt(context.getContentResolver(),
-                    CMSettings.Secure.BUTTON_BRIGHTNESS, 0);
-        } else {
-            int oldBright = prefs.getInt(ButtonBacklightBrightness.KEY_BUTTON_BACKLIGHT,
-                    defaultBrightness);
-            CMSettings.Secure.putInt(context.getContentResolver(),
-                    CMSettings.Secure.BUTTON_BRIGHTNESS, oldBright);
-        }
     }
 
     private void updateDisableHwKeysOption() {
@@ -876,5 +867,10 @@ public class ButtonSettings extends SettingsPreferenceFragment implements
                 CMSettings.Secure.RING_HOME_BUTTON_BEHAVIOR, (mHomeAnswerCall.isChecked()
                         ? CMSettings.Secure.RING_HOME_BUTTON_BEHAVIOR_ANSWER
                         : CMSettings.Secure.RING_HOME_BUTTON_BEHAVIOR_DO_NOTHING));
+    }
+
+    private static boolean isCameraDoubleTapPowerGestureAvailable(Resources res) {
+        return res.getBoolean(
+                com.android.internal.R.bool.config_cameraDoubleTapPowerGestureEnabled);
     }
 }
